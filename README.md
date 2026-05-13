@@ -16,10 +16,17 @@ Você pode executar este projeto diretamente no seu navegador:
 
 ### Solução de Problemas (StackBlitz/Local)
 
-Se você encontrar o erro `socket hang up` durante o `npm install` ou `prisma generate`, tente:
-1. Executar `npx prisma generate` manualmente.
-2. Verificar sua conexão com a internet.
-3. Se o erro persistir no StackBlitz, pode ser uma limitação temporária de rede do ambiente. Tente recarregar o projeto.
+Se você encontrar o erro `socket hang up` durante o `npm install` ou `SyntaxError` relacionado ao `@prisma/client`, siga estes passos:
+
+1. **Gere o Prisma Client manualmente:**
+   ```bash
+   npx prisma generate
+   ```
+2. **Sincronize o Banco de Dados:**
+   ```bash
+   npx prisma db push
+   ```
+3. **Download das Engines:** Se o download falhar no StackBlitz, tente recarregar o projeto. O sistema possui um fallback para não interromper a inicialização do servidor, mas o acesso ao banco de dados SQLite dependerá do Prisma Client estar gerado.
 
 ---
 

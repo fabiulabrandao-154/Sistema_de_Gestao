@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build && prisma generate",
+    "build": "vite build && npx prisma generate",
     "start": "NODE_ENV=production tsx server.ts",
-    "postinstall": "prisma generate",
+    "prepare": "prisma generate || echo 'Prisma generate failed, but continuing install...'",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
