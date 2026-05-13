@@ -6,6 +6,14 @@ Sistema completo para organização e gestão de peladas de futebol, desenvolvid
 
 Acesse a aplicação: [https://sistema-de-gestao-de-futebol-amador.vercel.app](https://sistema-de-gestao-de-futebol-amador.vercel.app)
 
+## Executar no StackBlitz
+
+Você pode executar este projeto diretamente no seu navegador:
+
+[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/seu-usuario/seu-repositorio)
+
+> **Nota:** Certifique-se de configurar as variáveis de ambiente (MONGODB_URI e JWT_SECRET) nas configurações do StackBlitz para funcionalidade completa.
+
 ## Equipe de Desenvolvimento
 
 ### Frontend
