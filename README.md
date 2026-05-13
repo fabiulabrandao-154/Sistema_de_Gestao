@@ -14,6 +14,15 @@ Você pode executar este projeto diretamente no seu navegador:
 
 > **Nota:** Certifique-se de configurar as variáveis de ambiente (MONGODB_URI e JWT_SECRET) nas configurações do StackBlitz para funcionalidade completa.
 
+### Solução de Problemas (StackBlitz/Local)
+
+Se você encontrar o erro `socket hang up` durante o `npm install` ou `prisma generate`, tente:
+1. Executar `npx prisma generate` manualmente.
+2. Verificar sua conexão com a internet.
+3. Se o erro persistir no StackBlitz, pode ser uma limitação temporária de rede do ambiente. Tente recarregar o projeto.
+
+---
+
 ## Equipe de Desenvolvimento
 
 ### Frontend
