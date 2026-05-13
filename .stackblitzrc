@@ -1,4 +1,4 @@
 {
   "installDefault": true,
-  "startCommand": "npm run dev"
+  "startCommand": "npm run setup:db && npm run dev"
 }

@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build && npx prisma generate",
+    "setup:db": "npx prisma generate && npx prisma db push",
+    "build": "vite build && npm run setup:db",
     "start": "NODE_ENV=production tsx server.ts",
-    "prepare": "prisma generate || echo 'Prisma generate failed, but continuing install...'",
+    "prepare": "npm run setup:db || echo 'Setup DB failed, but continuing...'",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
