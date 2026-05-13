@@ -6,7 +6,7 @@ import path from "path";
 import cors from "cors";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
-import prisma from "./backend/src/lib/prisma";
+import { setupGameSockets } from "./backend/src/sockets/gameSocket";
 
 // Import new modular backend
 import authRoutes from "./backend/src/routes/authRoutes";
@@ -15,7 +15,6 @@ import championshipRoutes from "./backend/src/routes/championshipRoutes";
 import playerRoutes from "./backend/src/routes/playerRoutes";
 import peladaJogadorRoutes from "./backend/src/routes/peladaJogadorRoutes";
 import eventRoutes from "./backend/src/routes/eventRoutes";
-import { setupGameSockets } from "./backend/src/sockets/gameSocket";
 
 dotenv.config();
 
@@ -44,14 +43,6 @@ async function startServer() {
   } else {
     console.warn("MONGODB_URI not found. Events might not work.");
     mongoose.set('bufferCommands', false);
-  }
-
-  // Check Prisma connection
-  try {
-    await prisma.$connect();
-    console.log("Connected to database via Prisma");
-  } catch (err) {
-    console.error("Prisma connection error:", err);
   }
 
   app.use(cors());

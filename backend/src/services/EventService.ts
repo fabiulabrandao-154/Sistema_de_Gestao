@@ -1,27 +1,19 @@
-import Event, { IEvent } from '../models/Event';
-import prisma from '../lib/prisma';
+import Event from '../models/Event';
 
 export class EventService {
-  async create(data: any) {
-    const event = new Event({
-      peladaId: data.pelada,
-      type: data.tipo,
-      timeId: data.time || data.time_id,
-      playerId: data.jogador || data.jogador_id,
-      jogadorNome: data.jogador_nome,
-      assistPlayerId: data.jogador_assistencia || data.jogador_assistencia_id,
-      minuto: data.minuto,
-      timestamp: new Date()
-    });
-
-    return await event.save();
+  async getAll(peladaId: string) {
+    return Event.find({ peladaId }).sort({ timestamp: 1 });
   }
 
   async getByPelada(peladaId: string) {
-    return await Event.find({ peladaId }).sort({ timestamp: -1 });
+    return this.getAll(peladaId);
+  }
+
+  async create(data: any) {
+    return Event.create(data);
   }
 
   async delete(id: string) {
-    return await Event.findByIdAndDelete(id);
+    return Event.findByIdAndDelete(id);
   }
 }
