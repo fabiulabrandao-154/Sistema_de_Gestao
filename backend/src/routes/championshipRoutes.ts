@@ -12,6 +12,7 @@ router.delete('/:id', authMiddleware, championshipController.delete);
 router.post('/:id/gerar_tabela', authMiddleware, championshipController.generateTable);
 router.get('/:id/classificacao', championshipController.getStandings);
 router.get('/:id/artilharia', championshipController.getScorers);
+router.get('/:id/assistencias', championshipController.getAssists);
 router.get('/:id/cartoes', championshipController.getCards);
 router.post('/:id/times', authMiddleware, championshipController.addTeam);
 router.delete('/times/:teamId', authMiddleware, championshipController.removeTeam);

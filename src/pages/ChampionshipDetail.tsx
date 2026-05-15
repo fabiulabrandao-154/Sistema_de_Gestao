@@ -22,7 +22,8 @@ import { cn } from "../lib/utils";
 
 interface Player {
   id: string;
-  name: string;
+  nome?: string;
+  name?: string;
 }
 
 interface Team {
@@ -38,17 +39,19 @@ interface Team {
 interface Game {
   id: string;
   round: number;
-  homeTeam: { id: string; name: string };
-  awayTeam: { id: string; name: string };
+  homeTeam: { id: string; name: string; color?: string };
+  awayTeam: { id: string; name: string; color?: string };
   homeScore: number;
   awayScore: number;
   status: string;
   date?: string;
+  eventos: GameEvent[];
 }
 
 interface StandingsEntry {
   id: string;
   nome: string;
+  cor?: string;
   pts: number;
   pj: number;
   v: number;
@@ -64,6 +67,13 @@ interface ScorerEntry {
   nome: string;
   time: string;
   gols: number;
+}
+
+interface AssistEntry {
+  id: string;
+  nome: string;
+  time: string;
+  assistencias: number;
 }
 
 interface CardEntry {
@@ -103,11 +113,13 @@ const ChampionshipDetail = () => {
   
   const [standings, setStandings] = useState<StandingsEntry[]>([]);
   const [scorers, setScorers] = useState<ScorerEntry[]>([]);
+  const [assists, setAssists] = useState<AssistEntry[]>([]);
   const [cards, setCards] = useState<CardEntry[]>([]);
   
   const [allPlayers, setAllPlayers] = useState<Player[]>([]);
   const [showAddTeamModal, setShowAddTeamModal] = useState(false);
   const [newTeamName, setNewTeamName] = useState("");
+  const [newTeamColor, setNewTeamColor] = useState("#3b82f6");
   
   const [selectedTeamForPlayer, setSelectedTeamForPlayer] = useState<string | null>(null);
   const [selectedPlayerId, setSelectedPlayerId] = useState("");
@@ -125,7 +137,10 @@ const ChampionshipDetail = () => {
 
   useEffect(() => {
     if (activeTab === 'tabela') fetchStandings();
-    if (activeTab === 'artilharia') fetchScorers();
+    if (activeTab === 'artilharia') {
+      fetchScorers();
+      fetchAssists();
+    }
     if (activeTab === 'cartoes') fetchCards();
   }, [activeTab, id]);
 
@@ -144,6 +159,15 @@ const ChampionshipDetail = () => {
       setScorers(response.data);
     } catch (error) {
       console.error("Error fetching scorers", error);
+    }
+  };
+
+  const fetchAssists = async () => {
+    try {
+      const response = await api.get(`/championships/${id}/assistencias`);
+      setAssists(response.data);
+    } catch (error) {
+      console.error("Error fetching assists", error);
     }
   };
 
@@ -203,9 +227,10 @@ const ChampionshipDetail = () => {
     e.preventDefault();
     if (!newTeamName) return;
     try {
-      await api.post(`/championships/${id}/times`, { name: newTeamName });
+      await api.post(`/championships/${id}/times`, { name: newTeamName, color: newTeamColor });
       toast.success("Time adicionado!");
       setNewTeamName("");
+      setNewTeamColor("#3b82f6");
       setShowAddTeamModal(false);
       fetchChamp();
     } catch (error) {
@@ -363,7 +388,12 @@ const ChampionshipDetail = () => {
                     {standings.map((team, idx) => (
                       <tr key={team.id} className="hover:bg-app-bg/30 transition-colors group">
                         <td className="px-4 py-5 font-black text-app-text-muted">{idx + 1}º</td>
-                        <td className="px-4 py-5 font-black text-app-text group-hover:text-blue-500 transition-colors uppercase tracking-tight border-l-4 border-transparent hover:border-blue-500">{team.nome}</td>
+                        <td className="px-4 py-5">
+                          <div className="flex items-center gap-3">
+                             <div className="w-2 h-2 rounded-full ring-2 ring-white dark:ring-zinc-900 shadow-sm" style={{ backgroundColor: team.cor || '#3b82f6' }}></div>
+                             <span className="font-black text-app-text group-hover:text-blue-500 transition-colors uppercase tracking-tight ">{team.nome}</span>
+                          </div>
+                        </td>
                         <td className="px-4 py-5 text-center font-black text-blue-500 text-lg">{team.pts}</td>
                         <td className="px-4 py-5 text-center font-bold text-app-text-muted">{team.pj}</td>
                         <td className="px-4 py-5 text-center font-bold text-green-500">{team.v}</td>
@@ -409,19 +439,31 @@ const ChampionshipDetail = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                            {champ.jogos.filter(j => j.round === round).map(game => (
                               <div key={game.id} className="bg-app-card border border-app-border rounded-2xl p-4 flex items-center justify-between hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all shadow-sm">
-                                 <div className="flex-1 text-right font-bold truncate text-xs uppercase tracking-tight">{game.homeTeam.name}</div>
+                                 <div className="flex-1 text-right font-bold truncate text-xs uppercase tracking-tight flex items-center justify-end gap-2">
+                                    {game.homeTeam.name}
+                                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: game.homeTeam.color || '#3b82f6' }}></div>
+                                 </div>
                                  <div className="flex items-center gap-2 px-4 py-2 bg-app-bg/50 rounded-xl border border-app-border mx-2">
                                     <span className="font-black text-lg w-6 text-center">{game.status === 'finalizado' ? game.homeScore : '-'}</span>
                                     <span className="text-[8px] text-zinc-500 font-black">VS</span>
                                     <span className="font-black text-lg w-6 text-center">{game.status === 'finalizado' ? game.awayScore : '-'}</span>
                                  </div>
-                                 <div className="flex-1 text-left font-bold truncate text-xs uppercase tracking-tight">{game.awayTeam.name}</div>
+                                 <div className="flex-1 text-left font-bold truncate text-xs uppercase tracking-tight flex items-center justify-start gap-2">
+                                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: game.awayTeam.color || '#3b82f6' }}></div>
+                                    {game.awayTeam.name}
+                                 </div>
                                  <button 
                                    onClick={() => {
                                       setSelectedGame(game);
                                       setHomeGoals(game.homeScore || 0);
                                       setAwayGoals(game.awayScore || 0);
-                                      setGameEvents([]);
+                                      // Load existing events if any
+                                      setGameEvents(game.eventos?.map((e: any) => ({
+                                        type: e.type,
+                                        playerId: e.playerId,
+                                        playerName: e.player?.name || 'Jogador',
+                                        teamId: e.teamId
+                                      })) || []);
                                       setShowResultModal(true);
                                    }}
                                    className="ml-2 p-2 text-blue-500 hover:bg-blue-500/10 rounded-lg transition"
@@ -455,7 +497,7 @@ const ChampionshipDetail = () => {
                   <div key={team.id} className="bg-app-bg/30 border border-app-border rounded-3xl p-6 space-y-4">
                      <div className="flex justify-between items-center bg-zinc-100 dark:bg-zinc-800 p-3 rounded-2xl">
                         <div className="flex items-center gap-3">
-                           <div className="w-10 h-10 bg-blue-500 text-white flex items-center justify-center rounded-xl font-black text-xl">
+                           <div className="w-10 h-10 flex items-center justify-center rounded-xl font-black text-xl text-white shadow-inner" style={{ backgroundColor: team.color || '#3b82f6' }}>
                               {team.name.charAt(0)}
                            </div>
                            <h3 className="font-black text-lg uppercase tracking-tight">{team.name}</h3>
@@ -479,7 +521,7 @@ const ChampionshipDetail = () => {
                         <div className="divide-y divide-app-border border border-app-border rounded-2xl bg-app-card overflow-hidden">
                            {team.jogadores.map(jt => (
                               <div key={jt.id} className="flex justify-between items-center p-3 hover:bg-app-bg/20 group">
-                                 <span className="text-sm font-bold text-app-text">{jt.player.name}</span>
+                                 <span className="text-sm font-bold text-app-text">{jt.player.nome || jt.player.name}</span>
                                  <button onClick={() => handleRemovePlayer(jt.id)} className="text-zinc-600 dark:text-zinc-400 p-1 hover:text-red-500 transition">
                                     <X className="w-3.5 h-3.5" />
                                  </button>
@@ -503,27 +545,54 @@ const ChampionshipDetail = () => {
 
         {activeTab === 'artilharia' && (
            <div className="space-y-8">
-              <h2 className="text-xl font-black text-app-text uppercase tracking-tight flex items-center gap-2">
-                <Award className="w-5 h-5 text-amber-500" /> Artilharia do Campeonato
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {scorers.map((scorer, idx) => (
-                  <div key={scorer.id} className="bg-app-bg/30 border border-app-border rounded-3xl p-6 flex items-center gap-5 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all shadow-sm group">
-                     <div className="w-12 h-12 bg-amber-500/10 text-amber-500 flex items-center justify-center rounded-2xl font-black text-xl shadow-inner group-hover:scale-110 transition-transform">
-                        {idx + 1}º
-                     </div>
-                     <div className="flex-1 min-w-0">
-                        <div className="text-sm font-black text-app-text uppercase tracking-tight truncate">{scorer.nome}</div>
-                        <div className="text-[10px] font-black text-app-text-muted uppercase tracking-widest">{scorer.time}</div>
-                     </div>
-                     <div className="text-2xl font-black text-amber-500">{scorer.gols}</div>
-                  </div>
-                ))}
-                {scorers.length === 0 && (
-                   <div className="col-span-full py-20 text-center text-app-text-muted bg-app-bg/30 rounded-3xl border-2 border-dashed border-app-border italic font-medium">
-                      Nenhum gol registrado até o momento.
-                   </div>
-                )}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                 {/* Scorers */}
+                 <div className="space-y-6">
+                    <h2 className="text-xl font-black text-app-text uppercase tracking-tight flex items-center gap-2">
+                       <Award className="w-5 h-5 text-amber-500" /> Artilharia
+                    </h2>
+                    <div className="space-y-4">
+                       {scorers.map((scorer, idx) => (
+                          <div key={scorer.id} className="bg-app-bg/30 border border-app-border rounded-3xl p-6 flex items-center gap-5 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all shadow-sm group">
+                             <div className="w-10 h-10 bg-amber-500/10 text-amber-500 flex items-center justify-center rounded-2xl font-black text-lg">
+                                {idx + 1}º
+                             </div>
+                             <div className="flex-1 min-w-0">
+                                <div className="text-sm font-black text-app-text uppercase tracking-tight truncate">{scorer.nome}</div>
+                                <div className="text-[10px] font-black text-app-text-muted uppercase tracking-widest">{scorer.time}</div>
+                             </div>
+                             <div className="text-xl font-black text-amber-500">{scorer.gols}</div>
+                          </div>
+                       ))}
+                       {scorers.length === 0 && (
+                          <div className="py-12 text-center text-app-text-muted italic border border-dashed border-app-border rounded-3xl">Nenhum gol.</div>
+                       )}
+                    </div>
+                 </div>
+
+                 {/* Assistances */}
+                 <div className="space-y-6">
+                    <h2 className="text-xl font-black text-app-text uppercase tracking-tight flex items-center gap-2">
+                       <Trophy className="w-5 h-5 text-blue-500" /> Assistências
+                    </h2>
+                    <div className="space-y-4">
+                       {assists.map((assist, idx) => (
+                          <div key={assist.id} className="bg-app-bg/30 border border-app-border rounded-3xl p-6 flex items-center gap-5 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all shadow-sm group">
+                             <div className="w-10 h-10 bg-blue-500/10 text-blue-500 flex items-center justify-center rounded-2xl font-black text-lg">
+                                {idx + 1}º
+                             </div>
+                             <div className="flex-1 min-w-0">
+                                <div className="text-sm font-black text-app-text uppercase tracking-tight truncate">{assist.nome}</div>
+                                <div className="text-[10px] font-black text-app-text-muted uppercase tracking-widest">{assist.time}</div>
+                             </div>
+                             <div className="text-xl font-black text-blue-500">{assist.assistencias}</div>
+                          </div>
+                       ))}
+                       {assists.length === 0 && (
+                          <div className="py-12 text-center text-app-text-muted italic border border-dashed border-app-border rounded-3xl">Nenhuma assistência.</div>
+                       )}
+                    </div>
+                 </div>
               </div>
 
                <button
@@ -605,6 +674,26 @@ const ChampionshipDetail = () => {
                       onChange={(e) => setNewTeamName(e.target.value)}
                     />
                  </div>
+                 <div>
+                    <label className="block text-[10px] font-black text-app-text-muted uppercase tracking-widest mb-1 pl-1">Cor do Time</label>
+                    <div className="flex flex-wrap gap-2 py-2">
+                       {['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#000000', '#ffffff'].map(c => (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => setNewTeamColor(c)}
+                            className={`w-8 h-8 rounded-full border-2 transition-all ${newTeamColor === c ? 'scale-110 border-blue-500 shadow-md ring-2 ring-blue-500 ring-offset-2' : 'border-transparent opacity-60 hover:opacity-100'}`}
+                            style={{ backgroundColor: c }}
+                          />
+                       ))}
+                       <input 
+                          type="color" 
+                          value={newTeamColor}
+                          onChange={(e) => setNewTeamColor(e.target.value)}
+                          className="w-8 h-8 rounded-full bg-transparent border-none cursor-pointer p-0"
+                       />
+                    </div>
+                 </div>
                  <div className="flex gap-4 pt-4">
                     <button type="button" onClick={() => setShowAddTeamModal(false)} className="flex-1 px-4 py-3 text-app-text-muted font-black uppercase text-[10px] tracking-widest">Cancelar</button>
                     <button type="submit" className="flex-1 bg-blue-600 text-white px-4 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest">Confirmar</button>
@@ -618,7 +707,8 @@ const ChampionshipDetail = () => {
       {selectedTeamForPlayer && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
            <div className="bg-app-card rounded-3xl p-8 max-w-sm w-full border border-app-border shadow-2xl">
-              <h2 className="text-xl font-black mb-6 text-app-text uppercase tracking-tighter">Escalar Jogador</h2>
+              <h2 className="text-xl font-black mb-1 text-app-text uppercase tracking-tighter">Escalar Jogador</h2>
+              <p className="text-[10px] text-app-text-muted mb-6 uppercase tracking-widest font-black">Utilize seus jogadores cadastrados</p>
               <div className="space-y-4">
                  <div>
                     <label className="block text-[10px] font-black text-app-text-muted uppercase tracking-widest mb-1 pl-1">Selecione o Jogador</label>
@@ -629,7 +719,7 @@ const ChampionshipDetail = () => {
                     >
                        <option value="">Selecione...</option>
                        {allPlayers.map(p => (
-                          <option key={p.id} value={p.id}>{p.name}</option>
+                          <option key={p.id} value={p.id}>{p.nome || p.name}</option>
                        ))}
                     </select>
                  </div>
@@ -691,7 +781,7 @@ const ChampionshipDetail = () => {
                              <select id="playerA" className="flex-1 bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs font-bold outline-none">
                                 <option value="">Jogador...</option>
                                 {champ.times.find(t => t.id === selectedGame.homeTeam.id)?.jogadores.map(jt => (
-                                   <option key={jt.id} value={jt.player.id}>{jt.player.name}</option>
+                                   <option key={jt.id} value={jt.player.id}>{jt.player.nome || jt.player.name}</option>
                                 ))}
                              </select>
                              <button 
@@ -715,13 +805,41 @@ const ChampionshipDetail = () => {
                                    const pId = select.value;
                                    if (!pId) return;
                                    const pName = select.options[select.selectedIndex].text;
+                                   setGameEvents([...gameEvents, { type: 'assistencia', playerId: pId, playerName: pName, teamId: selectedGame.homeTeam.id }]);
+                                   select.value = "";
+                                }}
+                                className="bg-blue-500 text-white p-2 rounded-xl"
+                                title="Assistência"
+                             >
+                                <Users className="w-4 h-4" />
+                             </button>
+                             <button 
+                                onClick={() => {
+                                   const select = document.getElementById('playerA') as HTMLSelectElement;
+                                   const pId = select.value;
+                                   if (!pId) return;
+                                   const pName = select.options[select.selectedIndex].text;
                                    setGameEvents([...gameEvents, { type: 'cartao_amarelo', playerId: pId, playerName: pName, teamId: selectedGame.homeTeam.id }]);
                                    select.value = "";
                                 }}
-                                className="bg-amber-500 text-white p-2 rounded-xl"
+                                className="bg-amber-400 text-white p-2 rounded-xl"
                                 title="Cartão Amarelo"
                              >
-                                <div className="w-4 h-4 bg-amber-400 rounded-sm"></div>
+                                <div className="w-4 h-4 bg-amber-400 rounded-sm border border-amber-600"></div>
+                             </button>
+                             <button 
+                                onClick={() => {
+                                   const select = document.getElementById('playerA') as HTMLSelectElement;
+                                   const pId = select.value;
+                                   if (!pId) return;
+                                   const pName = select.options[select.selectedIndex].text;
+                                   setGameEvents([...gameEvents, { type: 'cartao_vermelho', playerId: pId, playerName: pName, teamId: selectedGame.homeTeam.id }]);
+                                   select.value = "";
+                                }}
+                                className="bg-red-600 text-white p-2 rounded-xl"
+                                title="Cartão Vermelho"
+                             >
+                                <div className="w-4 h-4 bg-red-600 rounded-sm border border-red-800"></div>
                              </button>
                           </div>
                        </div>
@@ -733,7 +851,7 @@ const ChampionshipDetail = () => {
                              <select id="playerB" className="flex-1 bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs font-bold outline-none">
                                 <option value="">Jogador...</option>
                                 {champ.times.find(t => t.id === selectedGame.awayTeam.id)?.jogadores.map(jt => (
-                                   <option key={jt.id} value={jt.player.id}>{jt.player.name}</option>
+                                   <option key={jt.id} value={jt.player.id}>{jt.player.nome || jt.player.name}</option>
                                 ))}
                              </select>
                              <button 
@@ -757,13 +875,41 @@ const ChampionshipDetail = () => {
                                    const pId = select.value;
                                    if (!pId) return;
                                    const pName = select.options[select.selectedIndex].text;
+                                   setGameEvents([...gameEvents, { type: 'assistencia', playerId: pId, playerName: pName, teamId: selectedGame.awayTeam.id }]);
+                                   select.value = "";
+                                }}
+                                className="bg-blue-500 text-white p-2 rounded-xl"
+                                title="Assistência"
+                             >
+                                <Users className="w-4 h-4" />
+                             </button>
+                             <button 
+                                onClick={() => {
+                                   const select = document.getElementById('playerB') as HTMLSelectElement;
+                                   const pId = select.value;
+                                   if (!pId) return;
+                                   const pName = select.options[select.selectedIndex].text;
                                    setGameEvents([...gameEvents, { type: 'cartao_amarelo', playerId: pId, playerName: pName, teamId: selectedGame.awayTeam.id }]);
                                    select.value = "";
                                 }}
-                                className="bg-amber-500 text-white p-2 rounded-xl"
+                                className="bg-amber-400 text-white p-2 rounded-xl"
                                 title="Cartão Amarelo"
                              >
-                                <div className="w-4 h-4 bg-amber-400 rounded-sm"></div>
+                                <div className="w-4 h-4 bg-amber-400 rounded-sm border border-amber-600"></div>
+                             </button>
+                             <button 
+                                onClick={() => {
+                                   const select = document.getElementById('playerB') as HTMLSelectElement;
+                                   const pId = select.value;
+                                   if (!pId) return;
+                                   const pName = select.options[select.selectedIndex].text;
+                                   setGameEvents([...gameEvents, { type: 'cartao_vermelho', playerId: pId, playerName: pName, teamId: selectedGame.awayTeam.id }]);
+                                   select.value = "";
+                                }}
+                                className="bg-red-600 text-white p-2 rounded-xl"
+                                title="Cartão Vermelho"
+                             >
+                                <div className="w-4 h-4 bg-red-600 rounded-sm border border-red-800"></div>
                              </button>
                           </div>
                        </div>
@@ -774,10 +920,13 @@ const ChampionshipDetail = () => {
                           <div key={idx} className="flex justify-between items-center bg-zinc-100 dark:bg-zinc-900 border border-app-border px-4 py-3 rounded-2xl">
                              <div className="flex items-center gap-3">
                                 {event.type === 'gol' && <Trophy className="w-3.5 h-3.5 text-green-500" />}
-                                {event.type === 'cartao_amarelo' && <div className="w-3 h-4 bg-amber-400 rounded-sm"></div>}
-                                {event.type === 'cartao_vermelho' && <div className="w-3 h-4 bg-red-600 rounded-sm"></div>}
+                                {event.type === 'assistencia' && <Users className="w-3.5 h-3.5 text-blue-500" />}
+                                {event.type === 'cartao_amarelo' && <div className="w-3 h-4 bg-amber-400 rounded-sm border border-amber-600"></div>}
+                                {event.type === 'cartao_vermelho' && <div className="w-3 h-4 bg-red-600 rounded-sm border border-red-800"></div>}
                                 <span className="text-xs font-black uppercase tracking-tight italic">{event.playerName}</span>
-                                <span className="text-[8px] font-black text-app-text-muted uppercase tracking-widest">({champ.times.find(t => t.id === event.teamId)?.name})</span>
+                                <span className="text-[8px] font-black text-app-text-muted uppercase tracking-widest pl-2">
+                                   {event.teamId === selectedGame.homeTeam.id ? selectedGame.homeTeam.name : selectedGame.awayTeam.name}
+                                </span>
                              </div>
                              <button onClick={() => {
                                 if (event.type === 'gol') {

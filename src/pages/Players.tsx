@@ -28,31 +28,76 @@ const Players = () => {
   const [nivel, setNivel] = useState(3.0);
   const [ativo, setAtivo] = useState(true);
 
+  const [isSyncing, setIsSyncing] = useState(false);
+  const token = localStorage.getItem("organizer_token");
+  const isCloudEnabled = token && !token.startsWith("local-token-");
+
   useEffect(() => {
     fetchPlayers();
     
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === "jogadores") {
+      if (e.key === "jogadores" && !isCloudEnabled) {
         fetchPlayers();
       }
     };
     
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
+  }, [isCloudEnabled]);
 
-  const fetchPlayers = () => {
+  const fetchPlayers = async () => {
     setIsFetching(true);
     try {
-      const locals = DataService.getPlayers();
-      locals.sort((a, b) => (a.nome || "").localeCompare(b.nome || ""));
-      setPlayers(locals);
+      if (isCloudEnabled) {
+        const response = await api.get("/players");
+        setPlayers(response.data);
+      } else {
+        const locals = DataService.getPlayers();
+        locals.sort((a, b) => (a.nome || "").localeCompare(b.nome || ""));
+        setPlayers(locals);
+      }
+    } catch (error) {
+      console.error("Error fetching players", error);
+      toast.error("Erro ao carregar jogadores.");
     } finally {
       setIsFetching(false);
     }
   };
 
-  const handleSavePlayer = (e: React.FormEvent) => {
+  const handleSyncToCloud = async () => {
+    if (!confirm("Isso irá enviar seus jogadores locais para a nuvem. Deseja continuar?")) return;
+    
+    setIsSyncing(true);
+    const locals = DataService.getPlayers();
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const p of locals) {
+      try {
+        await api.post("/players", {
+          nome: p.nome,
+          nivel_estrelas: p.nivel_estrelas,
+          ativo: p.ativo
+        });
+        successCount++;
+      } catch (err) {
+        failCount++;
+      }
+    }
+
+    if (successCount > 0) {
+      toast.success(`${successCount} jogadores sincronizados!`);
+      // Optionally clear local storage if we want to move entirely to cloud
+      // DataService.clearPlayers(); 
+      fetchPlayers();
+    }
+    if (failCount > 0) {
+      toast.error(`${failCount} jogadores falharam na sincronização.`);
+    }
+    setIsSyncing(false);
+  };
+
+  const handleSavePlayer = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
@@ -63,14 +108,22 @@ const Players = () => {
     };
 
     try {
-      if (editingPlayer) {
-        // Local Update
-        DataService.updatePlayer(editingPlayer.id, payload);
-        toast.success("Jogador atualizado!");
+      if (isCloudEnabled) {
+        if (editingPlayer) {
+          await api.put(`/players/${editingPlayer.id}`, payload);
+          toast.success("Jogador atualizado na nuvem!");
+        } else {
+          await api.post("/players", payload);
+          toast.success("Jogador cadastrado na nuvem!");
+        }
       } else {
-        // Local Create
-        DataService.savePlayer(payload);
-        toast.success("Jogador cadastrado!");
+        if (editingPlayer) {
+          DataService.updatePlayer(editingPlayer.id, payload);
+          toast.success("Jogador atualizado!");
+        } else {
+          DataService.savePlayer(payload);
+          toast.success("Jogador cadastrado!");
+        }
       }
       
       fetchPlayers();
@@ -82,10 +135,14 @@ const Players = () => {
     }
   };
 
-  const handleDeletePlayer = (id: string) => {
+  const handleDeletePlayer = async (id: string) => {
     if (!confirm("Deseja realmente remover este jogador?")) return;
     try {
-      DataService.deletePlayer(id);
+      if (isCloudEnabled) {
+        await api.delete(`/players/${id}`);
+      } else {
+        DataService.deletePlayer(id);
+      }
       toast.success("Jogador removido!");
       fetchPlayers();
     } catch (error) {
@@ -124,13 +181,25 @@ const Players = () => {
           <h1 className="text-2xl font-bold text-app-text">Meus Jogadores</h1>
           <p className="text-app-text-muted">Gerencie seu banco de talentos para as peladas.</p>
         </div>
-        <button
-          onClick={() => openModal()}
-          className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-green-600 hover:bg-green-700 transition-colors shadow-sm"
-        >
-          <UserPlus className="mr-2 h-4 w-4" />
-          Novo Jogador
-        </button>
+        <div className="flex gap-2">
+          {isCloudEnabled && DataService.getPlayers().length > 0 && (
+            <button
+              onClick={handleSyncToCloud}
+              disabled={isSyncing}
+              className="inline-flex items-center px-4 py-2 border border-blue-600 rounded-lg text-sm font-medium text-blue-600 bg-transparent hover:bg-blue-50 transition-colors shadow-sm disabled:opacity-50"
+            >
+              {isSyncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
+              Sincronizar com Nuvem
+            </button>
+          )}
+          <button
+            onClick={() => openModal()}
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-green-600 hover:bg-green-700 transition-colors shadow-sm"
+          >
+            <UserPlus className="mr-2 h-4 w-4" />
+            Novo Jogador
+          </button>
+        </div>
       </div>
 
       <div className="bg-app-card p-4 rounded-xl shadow-sm border border-app-border">
