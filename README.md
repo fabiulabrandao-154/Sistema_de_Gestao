@@ -135,14 +135,39 @@ O projeto está configurado para deploy automático:
 
 ---
 
-## 📖 Como Usar o Sistema
+## 🏆 Modo Campeonato
+O FutGestao agora conta com um completo **Modo Campeonato**, permitindo organizar torneios com múltiplas equipes, tabela automatizada e estatísticas avançadas.
 
-1. **Primeiro Acesso**: Cadastre-se como organizador.
-2. **Gerenciar Jogadores**: Adicione jogadores e defina seu nível técnico (estrelas).
-3. **Agendar Pelada**: Crie um evento com data, local e regras.
-4. **Lista de Presença**: Controle quem confirmou e quem já pagou.
-5. **Sorteio**: Gere times equilibrados automaticamente.
-6. **Jogo ao Vivo**: Use o cronômetro e registre gols/cartões em tempo real.
+### Funcionalidades do Campeonato
+- **Gestão de Times**: Criação de equipes personalizadas e escalação de jogadores.
+- **Geração de Tabela**: Sorteio automático de rodadas (Turno Único ou Ida e Volta).
+- **Classificação em Tempo Real**: Cálculo automático de Pontos, Vitórias, Saldo de Gols e Gols Pró.
+- **Súmula Eletrônica**: Registro detalhado de gols e cartões por partida.
+- **Artilharia e Cartões**: Rankings automáticos de goleadores e controle de suspensões (2 amarelos ou 1 vermelho).
+
+---
+
+## 📖 Manuais de Uso
+
+### 👔 Manual do Organizador
+1. **Cadastro**: Crie sua conta de organizador para ter acesso ao painel de controle.
+2. **Setup Inicial**: Vá em "Jogadores" e cadastre todos os participantes com seus devidos níveis (0.5 a 5.0 estrelas).
+3. **Organizando a Pelada**: 
+   - Crie uma nova pelada.
+   - Adicione os jogadores na lista de presença conforme eles confirmam.
+   - Use o botão "Sortear Times" para gerar equipes equilibradas automaticamente.
+   - Durante o jogo, clique em "Iniciar" no cronômetro e use os botões "+" para registrar gols.
+   - Ao final, marque quem pagou no ícone de "Cifrão ($)".
+4. **Gerindo Campeonatos**:
+   - Em "Campeonatos", crie um novo torneio e defina o formato.
+   - Adicione os times e escale os jogadores (cada jogador deve estar em um time).
+   - Clique em "Gerar Tabela" para criar as rodadas.
+   - Clique no ícone de "Prancheta" em cada jogo para registrar o placar e os eventos (quem fez o gol, quem levou cartão).
+
+### 🏃 Manual do Visitante / Jogador
+1. **Página Inicial**: Acompanhe as próximas peladas agendadas.
+2. **Estatísticas**: Veja seu desempenho individual no ranking geral (Gols, Assistências, Vitórias).
+3. **Campeonatos**: Acesse a aba de Campeonatos para ver a classificação atualizada, a artilharia e os próximos confrontos do seu time.
 
 ---
 
@@ -156,6 +181,12 @@ O projeto está configurado para deploy automático:
 - `GET /api/jogadores` - Lista geral
 - `POST /api/peladas` - Nova partida
 - `POST /api/peladas/{id}/sortear` - Sorteio de times
+
+### Campeonatos
+- `GET /api/championships` - Listar campeonatos
+- `GET /api/championships/{id}/classificacao` - Tabela de classificação
+- `GET /api/championships/{id}/artilharia` - Ranking de gols
+- `PUT /api/championships/jogos/{id}` - Atualizar súmula do jogo
 
 ---
 

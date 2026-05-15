@@ -1,12 +1,13 @@
-import Player from '../models/Player';
-import PlayerStats from '../models/PlayerStats';
-import PeladaJogador from '../models/PeladaJogador';
+import prisma from '../lib/prisma';
 
 export class PlayerService {
   async getAll(userId: string) {
-    const players = await Player.find({ userId }).sort({ name: 1 });
+    const players = await prisma.player.findMany({ 
+      where: { userId },
+      orderBy: { name: 'asc' }
+    });
     return players.map(p => ({
-      id: p._id,
+      id: p.id,
       nome: p.name,
       nivel_estrelas: p.stars,
       ativo: p.active,
@@ -15,14 +16,23 @@ export class PlayerService {
   }
 
   async getById(id: string) {
-    const p = await Player.findById(id);
+    const p = await prisma.player.findUnique({ 
+      where: { id },
+      include: {
+        stats: true,
+        inscritos: {
+          include: {
+            pelada: true
+          }
+        }
+      }
+    });
     if (!p) return null;
     
-    const peladaJogadores = await PeladaJogador.find({ playerId: id }).populate('peladaId');
-    const stats = await PlayerStats.findOne({ playerId: id });
+    const stats = p.stats;
 
     return {
-      id: p._id,
+      id: p.id,
       nome: p.name,
       nivel_estrelas: p.stars,
       ativo: p.active,
@@ -44,16 +54,18 @@ export class PlayerService {
         total_derrotas: 0,
         media_gols: 0
       },
-      peladaJogadores: peladaJogadores
+      peladaJogadores: p.inscritos
     };
   }
 
   async create(data: any, userId: string) {
-    return Player.create({
-      name: data.nome || data.name,
-      stars: Number(data.nivel_estrelas || data.stars || 0),
-      active: data.ativo !== undefined ? data.ativo : true,
-      userId
+    return prisma.player.create({
+      data: {
+        name: data.nome || data.name,
+        stars: Number(data.nivel_estrelas || data.stars || 0),
+        active: data.ativo !== undefined ? data.ativo : true,
+        userId
+      }
     });
   }
 
@@ -63,10 +75,16 @@ export class PlayerService {
     if (data.nivel_estrelas !== undefined) updateData.stars = Number(data.nivel_estrelas);
     if (data.ativo !== undefined) updateData.active = data.ativo;
 
-    return Player.findByIdAndUpdate(id, updateData, { new: true });
+    return prisma.player.update({
+      where: { id },
+      data: updateData
+    });
   }
 
   async delete(id: string) {
-    return Player.findByIdAndUpdate(id, { active: false }, { new: true });
+    return prisma.player.update({
+      where: { id },
+      data: { active: false }
+    });
   }
 }

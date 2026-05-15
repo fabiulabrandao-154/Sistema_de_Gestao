@@ -28,6 +28,11 @@ const Peladas = () => {
   const [dataHora, setDataHora] = useState("");
   const [local, setLocal] = useState("");
   const [jogadoresPorTime, setJogadoresPorTime] = useState(5);
+  const [timesSimultaneos, setTimesSimultaneos] = useState(2);
+  const [duracaoMinutos, setDuracaoMinutos] = useState(10);
+  const [valorPorJogador, setValorPorJogador] = useState("");
+  const [colete1, setColete1] = useState("#FF0000");
+  const [colete2, setColete2] = useState("#0000FF");
 
   useEffect(() => {
     fetchPeladas();
@@ -61,6 +66,10 @@ const Peladas = () => {
       data_hora: dataHora,
       local,
       jogadores_por_time: jogadoresPorTime,
+      times_simultaneos: timesSimultaneos,
+      duracao_minutos: duracaoMinutos,
+      valor_por_jogador: valorPorJogador ? parseFloat(valorPorJogador) : undefined,
+      coletes: [colete1, colete2],
     };
 
     try {
@@ -79,6 +88,11 @@ const Peladas = () => {
     setDataHora("");
     setLocal("");
     setJogadoresPorTime(5);
+    setTimesSimultaneos(2);
+    setDuracaoMinutos(10);
+    setValorPorJogador("");
+    setColete1("#FF0000");
+    setColete2("#0000FF");
   };
 
   const getStatusBadge = (status: string) => {
@@ -183,14 +197,47 @@ const Peladas = () => {
                 <label className="block text-sm font-medium text-app-text-muted mb-1">Local</label>
                 <input type="text" required className="w-full px-3 py-2 border border-app-border bg-app-bg rounded-lg text-app-text focus:ring-2 focus:ring-green-500" value={local} onChange={(e) => setLocal(e.target.value)} placeholder="Ex: Arena Soccer" />
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-app-text-muted mb-1">Jogadores por Time</label>
+                  <select className="w-full px-3 py-2 border border-app-border bg-app-bg rounded-lg text-app-text focus:ring-2 focus:ring-green-500" value={jogadoresPorTime} onChange={(e) => setJogadoresPorTime(parseInt(e.target.value))}>
+                    <option value={5}>5 x 5</option>
+                    <option value={6}>6 x 6</option>
+                    <option value={7}>7 x 7</option>
+                    <option value={11}>11 x 11</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-app-text-muted mb-1">Times Simultâneos</label>
+                  <select className="w-full px-3 py-2 border border-app-border bg-app-bg rounded-lg text-app-text focus:ring-2 focus:ring-green-500" value={timesSimultaneos} onChange={(e) => setTimesSimultaneos(parseInt(e.target.value))}>
+                    <option value={2}>2 times</option>
+                    <option value={3}>3 times</option>
+                    <option value={4}>4 times</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-app-text-muted mb-1">Duração (m)</label>
+                  <input type="number" className="w-full px-3 py-2 border border-app-border bg-app-bg rounded-lg text-app-text focus:ring-2 focus:ring-green-500" value={duracaoMinutos} onChange={(e) => setDuracaoMinutos(parseInt(e.target.value))} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-app-text-muted mb-1">Valor p/ Jogador (R$)</label>
+                  <input type="number" step="0.01" className="w-full px-3 py-2 border border-app-border bg-app-bg rounded-lg text-app-text focus:ring-2 focus:ring-green-500" value={valorPorJogador} onChange={(e) => setValorPorJogador(e.target.value)} placeholder="0.00" />
+                </div>
+              </div>
               <div>
-                <label className="block text-sm font-medium text-app-text-muted mb-1">Jogadores por Time</label>
-                <select className="w-full px-3 py-2 border border-app-border bg-app-bg rounded-lg text-app-text focus:ring-2 focus:ring-green-500" value={jogadoresPorTime} onChange={(e) => setJogadoresPorTime(parseInt(e.target.value))}>
-                  <option value={5}>5 x 5 (Futsal/Society)</option>
-                  <option value={6}>6 x 6</option>
-                  <option value={7}>7 x 7</option>
-                  <option value={11}>11 x 11 (Campo)</option>
-                </select>
+                <label className="block text-sm font-medium text-app-text-muted mb-1">Cores dos Coletes</label>
+                <div className="flex gap-4">
+                  <div className="flex-1 flex items-center gap-2">
+                    <input type="color" className="w-8 h-8 rounded border-none cursor-pointer p-0" value={colete1} onChange={(e) => setColete1(e.target.value)} />
+                    <span className="text-xs text-app-text-muted">Time A</span>
+                  </div>
+                  <div className="flex-1 flex items-center gap-2">
+                    <input type="color" className="w-8 h-8 rounded border-none cursor-pointer p-0" value={colete2} onChange={(e) => setColete2(e.target.value)} />
+                    <span className="text-xs text-app-text-muted">Time B</span>
+                  </div>
+                </div>
               </div>
               <div className="flex gap-3 pt-4">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-4 py-2 border border-app-border rounded-lg text-sm font-medium text-app-text-muted hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Cancelar</button>

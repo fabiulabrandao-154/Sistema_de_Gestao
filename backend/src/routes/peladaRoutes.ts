@@ -14,6 +14,8 @@ router.put('/:id', authMiddleware, peladaController.update);
 router.delete('/:id', authMiddleware, peladaController.delete);
 router.post('/:id/jogadores', authMiddleware, peladaController.addPlayer);
 router.put('/:id/jogadores/reordenar', authMiddleware, peladaController.reorderPlayers);
+router.put('/:id/presenca/:jogador_id', authMiddleware, peladaController.togglePresence);
+router.post('/:id/finalizar', authMiddleware, peladaController.finalize);
 router.post('/:id/sortear', authMiddleware, peladaController.sort);
 router.get('/:id/times', peladaController.getTimes);
 router.post('/:id/times/ajustar', authMiddleware, peladaController.adjust);

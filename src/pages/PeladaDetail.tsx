@@ -15,8 +15,11 @@ import {
   Play,
   RotateCcw,
   DollarSign,
-  Info
+  Info,
+  GripVertical,
+  Palette
 } from "lucide-react";
+import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { toast } from "react-hot-toast";
 import api from "../services/api";
 import { cn } from "../lib/utils";
@@ -78,7 +81,7 @@ const PeladaDetail = () => {
       const localPlayers = DataService.getPlayers();
       
       if (localPelada) {
-        localPelada.inscritos?.sort((a, b) => (a.jogador_nome || "").localeCompare(b.jogador_nome || ""));
+        localPelada.inscritos?.sort((a, b) => (a.ordem_chegada || 0) - (b.ordem_chegada || 0));
         setPelada(localPelada);
       }
       
@@ -148,8 +151,34 @@ const PeladaDetail = () => {
   };
 
   const movePlayer = async (index: number, direction: 'up' | 'down') => {
-    // This is disabled since we are sorting alphabetically now as requested before
-    // but the logic remains if needed.
+    if (!pelada || !id) return;
+    const items = Array.from(pelada.inscritos || []);
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    
+    if (targetIndex < 0 || targetIndex >= items.length) return;
+    
+    const [movedItem] = items.splice(index, 1);
+    items.splice(targetIndex, 0, movedItem);
+    
+    const playerIds = items.map(i => i.jogador);
+    const updated = DataService.reorderPlayers(id, playerIds);
+    if (updated) {
+      setPelada(updated);
+    }
+  };
+
+  const handleDragEnd = (result: DropResult) => {
+    if (!result.destination || !pelada || !id) return;
+    
+    const items = Array.from(pelada.inscritos || []);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+    
+    const playerIds = items.map(i => i.jogador);
+    const updated = DataService.reorderPlayers(id, playerIds);
+    if (updated) {
+      setPelada(updated);
+    }
   };
 
   const filteredAvailable = availablePlayers.filter(p => 
@@ -325,66 +354,90 @@ const PeladaDetail = () => {
               </div>
 
               <div className="bg-app-card rounded-[2rem] border border-app-border overflow-hidden shadow-xl">
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-app-border">
-                    <thead className="bg-zinc-50 dark:bg-zinc-900">
-                      <tr>
-                        <th className="px-8 py-5 text-left font-black text-app-text-muted uppercase tracking-widest text-[10px]">#</th>
-                        <th className="px-8 py-5 text-left font-black text-app-text-muted uppercase tracking-widest text-[10px]">Jogador</th>
-                        <th className="px-8 py-5 text-center font-black text-app-text-muted uppercase tracking-widest text-[10px]">Confirmado</th>
-                        {isOrganizador && <th className="px-8 py-5 text-right font-black text-app-text-muted uppercase tracking-widest text-[10px]">Ações</th>}
-                      </tr>
-                    </thead>
-                    <tbody className="bg-app-card divide-y divide-app-border/40">
-                      {[...(pelada.inscritos || [])]
-                        .sort((a, b) => (a.jogador_nome || "").localeCompare(b.jogador_nome || ""))
-                        .map((pj, index) => (
-                        <tr key={pj.id} className={cn("hover:bg-zinc-50 dark:hover:bg-zinc-900/30 transition-colors", !pj.presenca_confirmada && "opacity-40 grayscale-[0.5]")}>
-                          <td className="px-8 py-5 whitespace-nowrap">
-                            <div className="flex flex-col items-center">
-                              <span className="text-xs font-black text-app-text-muted font-mono">{index + 1}º</span>
-                            </div>
-                          </td>
-                          <td className="px-8 py-5 whitespace-nowrap">
-                            <div className="font-black text-app-text uppercase tracking-tight text-sm">{pj.jogador_nome}</div>
-                            <div className="text-[10px] text-yellow-500 font-black tracking-widest uppercase">NÍVEL {(pj.jogador_nivel || 0).toFixed(1)} ★</div>
-                          </td>
-                          <td className="px-8 py-5 whitespace-nowrap text-center">
-                            <button 
-                              onClick={() => isOrganizador && handleTogglePresence(pj.id, pj.presenca_confirmada)} 
-                              disabled={!isOrganizador}
-                              className={cn(
-                                "w-10 h-10 rounded-xl border-2 flex items-center justify-center transition-all shadow-sm",
-                                pj.presenca_confirmada 
-                                  ? "bg-green-500 border-green-600 text-white shadow-green-500/20" 
-                                  : "border-app-border bg-app-bg text-transparent"
+                <DragDropContext onDragEnd={handleDragEnd}>
+                  <Droppable droppableId="players">
+                    {(provided) => (
+                      <table className="min-w-full divide-y divide-app-border" {...provided.droppableProps} ref={provided.innerRef}>
+                        <thead className="bg-zinc-50 dark:bg-zinc-900">
+                          <tr>
+                            <th className="px-8 py-5 text-left font-black text-app-text-muted uppercase tracking-widest text-[10px]">#</th>
+                            <th className="px-8 py-5 text-left font-black text-app-text-muted uppercase tracking-widest text-[10px]">Jogador</th>
+                            <th className="px-8 py-5 text-center font-black text-app-text-muted uppercase tracking-widest text-[10px]">Confirmado</th>
+                            {isOrganizador && <th className="px-8 py-5 text-right font-black text-app-text-muted uppercase tracking-widest text-[10px]">Ações</th>}
+                          </tr>
+                        </thead>
+                        <tbody className="bg-app-card divide-y divide-app-border/40">
+                          {(pelada.inscritos || []).map((pj, index) => (
+                            <Draggable key={pj.id} draggableId={pj.id} index={index}>
+                              {(provided, snapshot) => (
+                                <tr 
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  className={cn(
+                                    "hover:bg-zinc-50 dark:hover:bg-zinc-900/30 transition-colors", 
+                                    !pj.presenca_confirmada && "opacity-40 grayscale-[0.5]",
+                                    snapshot.isDragging && "bg-zinc-100 dark:bg-zinc-800 shadow-2xl z-50 rounded-xl"
+                                  )}
+                                >
+                                  <td className="px-8 py-5 whitespace-nowrap">
+                                    <div className="flex items-center gap-4">
+                                      <div {...provided.dragHandleProps} className="text-zinc-400 hover:text-zinc-600">
+                                        <GripVertical className="w-4 h-4" />
+                                      </div>
+                                      <span className="text-xs font-black text-app-text-muted font-mono">{index + 1}º</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-8 py-5 whitespace-nowrap">
+                                    <div className="font-black text-app-text uppercase tracking-tight text-sm">{pj.jogador_nome}</div>
+                                    <div className="text-[10px] text-yellow-500 font-black tracking-widest uppercase">NÍVEL {(pj.jogador_nivel || 0).toFixed(1)} ★</div>
+                                  </td>
+                                  <td className="px-8 py-5 whitespace-nowrap text-center">
+                                    <button 
+                                      onClick={() => isOrganizador && handleTogglePresence(pj.id, pj.presenca_confirmada)} 
+                                      disabled={!isOrganizador}
+                                      className={cn(
+                                        "mx-auto w-10 h-10 rounded-xl border-2 flex items-center justify-center transition-all shadow-sm",
+                                        pj.presenca_confirmada 
+                                          ? "bg-green-500 border-green-600 text-white shadow-green-500/20" 
+                                          : "border-app-border bg-app-bg text-transparent"
+                                      )}
+                                    >
+                                      <CheckCircle2 className="w-5 h-5" />
+                                    </button>
+                                  </td>
+                                  {isOrganizador && (
+                                    <td className="px-8 py-5 whitespace-nowrap text-right">
+                                      <div className="flex items-center justify-end gap-2">
+                                        <div className="flex flex-col gap-1 mr-2">
+                                          <button onClick={() => movePlayer(index, 'up')} className="p-1 text-app-text-muted hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded transition"><ArrowUp className="w-3 h-3" /></button>
+                                          <button onClick={() => movePlayer(index, 'down')} className="p-1 text-app-text-muted hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded transition"><ArrowDown className="w-3 h-3" /></button>
+                                        </div>
+                                        <button 
+                                          onClick={() => handleRemovePlayer(pj.id)}
+                                          className="p-2.5 text-red-500 hover:bg-red-500 hover:text-white rounded-xl transition-all border border-red-500/20 shadow-sm"
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                        </button>
+                                      </div>
+                                    </td>
+                                  )}
+                                </tr>
                               )}
-                            >
-                              <CheckCircle2 className="w-5 h-5" />
-                            </button>
-                          </td>
-                          {isOrganizador && (
-                            <td className="px-8 py-5 whitespace-nowrap text-right">
-                              <button 
-                                onClick={() => handleRemovePlayer(pj.id)}
-                                className="p-2.5 text-red-500 hover:bg-red-500 hover:text-white rounded-xl transition-all border border-red-500/20 shadow-sm"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </td>
+                            </Draggable>
+                          ))}
+                          {provided.placeholder}
+                          {(pelada.inscritos?.length || 0) === 0 && (
+                            <tr>
+                              <td colSpan={5} className="px-8 py-20 text-center">
+                                <div className="text-app-text-muted italic font-serif opacity-40">Nenhum jogador na lista.</div>
+                              </td>
+                            </tr>
                           )}
-                        </tr>
-                      ))}
-                      {(pelada.inscritos?.length || 0) === 0 && (
-                        <tr>
-                          <td colSpan={5} className="px-8 py-20 text-center">
-                            <div className="text-app-text-muted italic font-serif opacity-40">Nenhum jogador na lista.</div>
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                        </tbody>
+                      </table>
+                    )}
+                  </Droppable>
+                </DragDropContext>
               </div>
             </div>
           )}
@@ -511,6 +564,80 @@ const PeladaDetail = () => {
                        />
                     </div>
                  </div>
+
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-app-text-muted uppercase tracking-widest px-1">Jogadores p/ Time</label>
+                      <input 
+                        type="number"
+                        className="w-full bg-app-bg border border-app-border rounded-2xl px-5 py-3 text-sm font-bold text-app-text focus:border-green-500 transition-all outline-none"
+                        defaultValue={pelada.jogadores_por_time}
+                        onBlur={(e) => {
+                          const val = parseInt(e.target.value);
+                          DataService.updatePelada(id!, { jogadores_por_time: val });
+                        }}
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-app-text-muted uppercase tracking-widest px-1">Times Simultâneos</label>
+                      <input 
+                        type="number"
+                        className="w-full bg-app-bg border border-app-border rounded-2xl px-5 py-3 text-sm font-bold text-app-text focus:border-green-500 transition-all outline-none"
+                        defaultValue={pelada.times_simultaneos}
+                        onBlur={(e) => {
+                          const val = parseInt(e.target.value);
+                          DataService.updatePelada(id!, { times_simultaneos: val });
+                        }}
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-app-text-muted uppercase tracking-widest px-1">Duração (min)</label>
+                      <input 
+                        type="number"
+                        className="w-full bg-app-bg border border-app-border rounded-2xl px-5 py-3 text-sm font-bold text-app-text focus:border-green-500 transition-all outline-none"
+                        defaultValue={pelada.duracao_minutos}
+                        onBlur={(e) => {
+                          const val = parseInt(e.target.value);
+                          DataService.updatePelada(id!, { duracao_minutos: val });
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <label className="text-xs font-black text-app-text-muted uppercase tracking-widest px-1 flex items-center gap-2">
+                       <Palette className="w-4 h-4" />
+                       Cores dos Coletes (Sorteio)
+                    </label>
+                    <div className="flex gap-6">
+                      <div className="flex items-center gap-4">
+                         <input 
+                           type="color" 
+                           className="w-12 h-12 rounded-xl border-none cursor-pointer"
+                           defaultValue={pelada.coletes?.[0] || "#FF0000"}
+                           onBlur={(e) => {
+                             const newColetes = [...(pelada.coletes || ["#FF0000", "#0000FF"])];
+                             newColetes[0] = e.target.value;
+                             DataService.updatePelada(id!, { coletes: newColetes });
+                           }}
+                         />
+                         <span className="text-xs font-bold text-app-text uppercase">Time A</span>
+                      </div>
+                      <div className="flex items-center gap-4">
+                         <input 
+                           type="color" 
+                           className="w-12 h-12 rounded-xl border-none cursor-pointer"
+                           defaultValue={pelada.coletes?.[1] || "#0000FF"}
+                           onBlur={(e) => {
+                             const newColetes = [...(pelada.coletes || ["#FF0000", "#0000FF"])];
+                             newColetes[1] = e.target.value;
+                             DataService.updatePelada(id!, { coletes: newColetes });
+                           }}
+                         />
+                         <span className="text-xs font-bold text-app-text uppercase">Time B</span>
+                      </div>
+                    </div>
+                  </div>
 
                  <div className="pt-4 border-t border-app-border">
                    <h3 className="font-black text-app-text uppercase tracking-tight mb-4">Ações Perigosas</h3>

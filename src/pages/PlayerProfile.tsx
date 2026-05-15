@@ -14,6 +14,7 @@ import {
   TrendingUp
 } from "lucide-react";
 import { toast } from "react-hot-toast";
+import api from "../services/api";
 import DataService, { Player, PlayerStats } from "../services/dataService";
 
 const PlayerProfile = () => {
@@ -27,8 +28,41 @@ const PlayerProfile = () => {
     fetchPlayer();
   }, [id]);
 
-  const fetchPlayer = () => {
+  const fetchPlayer = async () => {
     if (!id) return;
+    setLoading(true);
+    try {
+      // Try fetching from server first
+      const response = await api.get(`/jogadores/${id}`);
+      if (response.data) {
+        setPlayer({
+          id: response.data.id,
+          nome: response.data.nome,
+          nivel_estrelas: response.data.nivel_estrelas,
+          ativo: response.data.ativo,
+          data_cadastro: response.data.data_cadastro
+        });
+        
+        const s = response.data.estatisticas;
+        setStats({
+          id: id,
+          playerId: id,
+          goals: s.total_gols,
+          assists: s.total_assistencias,
+          wins: s.total_vitorias,
+          draws: s.total_empates,
+          losses: s.total_derrotas,
+          matchesPlayed: s.total_jogos,
+          yellowCards: 0, // Server might not return these yet or they are in a different format
+          redCards: 0
+        });
+        return;
+      }
+    } catch (error) {
+      console.warn("Server profile fetch failed, trying local data...", error);
+    }
+
+    // Fallback to local data
     try {
       const p = DataService.getPlayerById(id);
       const s = DataService.getPlayerStats(id);

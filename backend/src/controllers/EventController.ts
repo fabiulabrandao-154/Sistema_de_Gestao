@@ -7,13 +7,13 @@ export class EventController {
   async create(req: Request, res: Response) {
     try {
       const peladaId = req.params.id || req.body.pelada;
-      const result = await eventService.create({ ...req.body, pelada: peladaId });
+      const result = await eventService.create({ ...req.body, peladaId: peladaId });
       res.status(201).json({
-        ...result.toJSON(),
-        id: result._id,
+        ...result,
+        id: result.id,
         jogador_id: result.playerId,
         tipo: result.type,
-        minuto: (result as any).minuto || 0
+        minuto: result.minute || 0
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -27,13 +27,13 @@ export class EventController {
       
       const results = await eventService.getByPelada(peladaId as string);
       res.json(results.map(r => ({
-        id: r._id,
+        id: r.id,
         tipo: r.type,
         jogador_id: r.playerId,
         jogador_assistencia: r.assistPlayerId || null,
-        jogador_nome: (r as any).jogador_nome || "", // Support for name if stored or joined
-        minuto: (r as any).minuto || 0,
-        timestamp: r.timestamp
+        jogador_nome: "", 
+        minuto: r.minute || 0,
+        timestamp: r.createdAt
       })));
     } catch (error: any) {
       res.status(500).json({ error: error.message });

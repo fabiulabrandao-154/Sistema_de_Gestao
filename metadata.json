@@ -1,5 +1,5 @@
 {
-  "name": "Remix: FutGestão",
-  "description": "Sistema completo para gestão de peladas, times e campeonatos de futebol.",
+  "name": "FutGestão",
+  "description": "Sistema completo para organização e gestão de peladas com suporte a sorteio equilibrado, controle financeiro e súmula ao vivo.",
   "requestFramePermissions": []
 }

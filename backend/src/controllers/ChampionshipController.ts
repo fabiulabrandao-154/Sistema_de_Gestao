@@ -78,18 +78,58 @@ export class ChampionshipController {
   async addTeam(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const { nome } = req.body;
-      const result = await championshipService.addTeam(id, nome);
+      const result = await championshipService.addTeam(id, req.body);
       res.json(result);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   }
 
-  async recordResult(req: Request, res: Response) {
+  async removeTeam(req: Request, res: Response) {
     try {
-      const { id, gameId } = req.params;
-      const result = await championshipService.recordResult(id, gameId, req.body);
+      const { teamId } = req.params;
+      const result = await championshipService.removeTeam(teamId);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  async addPlayerToTeam(req: Request, res: Response) {
+    try {
+      const { teamId } = req.params;
+      const { playerId } = req.body;
+      const result = await championshipService.addPlayerToTeam(teamId, playerId);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  async removePlayerFromTeam(req: Request, res: Response) {
+    try {
+      const { jogadorTimeId } = req.params;
+      const result = await championshipService.removePlayerFromTeam(jogadorTimeId);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  async updateMatch(req: Request, res: Response) {
+    try {
+      const { matchId } = req.params;
+      const result = await championshipService.updateMatch(matchId, req.body);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  async delete(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const result = await championshipService.delete(id);
       res.json(result);
     } catch (error: any) {
       res.status(500).json({ error: error.message });

@@ -64,6 +64,10 @@ export interface Pelada {
   local: string;
   status: 'agendada' | 'em_andamento' | 'encerrada' | 'cancelada' | 'finalizada';
   jogadores_por_time: number;
+  times_simultaneos: number;
+  duracao_minutos: number;
+  valor_por_jogador?: number;
+  coletes: string[];
   inscritos: JogadorInscrito[];
   times?: Time[];
   eventos?: Evento[];
@@ -193,6 +197,9 @@ const DataService = {
       local: "",
       status: 'agendada',
       jogadores_por_time: 5,
+      times_simultaneos: 2,
+      duracao_minutos: 10,
+      coletes: ['#FF0000', '#0000FF'],
       inscritos: [],
       placar_casa: 0,
       placar_visitante: 0,

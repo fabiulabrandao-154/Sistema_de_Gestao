@@ -203,6 +203,16 @@ export class PeladaController {
     }
   }
 
+  async togglePresence(req: Request, res: Response) {
+    try {
+      const { id, jogador_id } = req.params;
+      const result = await peladaService.togglePresence(id, jogador_id);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
   async getRateio(req: Request, res: Response) {
     try {
       const { id } = req.params;

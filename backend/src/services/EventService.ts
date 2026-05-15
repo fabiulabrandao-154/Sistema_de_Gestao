@@ -1,8 +1,11 @@
-import Event from '../models/Event';
+import prisma from '../lib/prisma';
 
 export class EventService {
   async getAll(peladaId: string) {
-    return Event.find({ peladaId }).sort({ timestamp: 1 });
+    return prisma.event.findMany({ 
+      where: { peladaId },
+      orderBy: { minute: 'asc' }
+    });
   }
 
   async getByPelada(peladaId: string) {
@@ -10,10 +13,18 @@ export class EventService {
   }
 
   async create(data: any) {
-    return Event.create(data);
+    return prisma.event.create({
+      data: {
+        peladaId: data.peladaId,
+        type: data.type,
+        playerId: data.playerId,
+        assistPlayerId: data.assistPlayerId,
+        minute: data.minute || 0
+      }
+    });
   }
 
   async delete(id: string) {
-    return Event.findByIdAndDelete(id);
+    return prisma.event.delete({ where: { id } });
   }
 }

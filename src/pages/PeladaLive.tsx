@@ -839,15 +839,27 @@ const PeladaLive = () => {
                     Voltar ao jogo
                   </button>
                   <button 
-                    onClick={() => {
+                    onClick={async () => {
                       if (window.confirm("Finalizar pelada? Isso irá salvar as estatísticas e você não poderá mais editar este jogo.")) {
                         try {
+                          // 1. Try server first
+                          const token = localStorage.getItem("organizer_token");
+                          if (token && !token.startsWith("local-token-")) {
+                            await api.post(`/peladas/${id}/finalizar`);
+                          }
+                          
+                          // 2. Always update local for sync/fallback
                           DataService.finalizePelada(id!);
+                          
                           toast.success("Pelada finalizada com sucesso!");
-                          // In local mode, we don't need socket emit as storage event handles it
                           navigate(`/peladas/${id}`);
                         } catch (error) {
-                          toast.error("Erro ao finalizar pelada.");
+                          console.error(error);
+                          toast.error("Erro ao finalizar pelada no servidor, mas dados locais foram atualizados.");
+                          
+                          // Fallback local update if server failed
+                          DataService.finalizePelada(id!);
+                          navigate(`/peladas/${id}`);
                         }
                       }
                     }}

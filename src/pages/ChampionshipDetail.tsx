@@ -12,36 +12,84 @@ import {
   Play,
   ClipboardCheck,
   Award,
-  X
+  X,
+  Trash2,
+  UserPlus
 } from "lucide-react";
 import api from "../services/api";
 import { toast } from "react-hot-toast";
-import DataService from "../services/dataService";
-import { getLocalData } from "../lib/localData";
 import { cn } from "../lib/utils";
+
+interface Player {
+  id: string;
+  name: string;
+}
 
 interface Team {
   id: string;
-  nome: string;
+  name: string;
+  color?: string;
+  jogadores: { 
+    id: string;
+    player: Player;
+  }[];
 }
 
 interface Game {
   id: string;
-  time_casa: string;
-  time_visitante: string;
-  time_casa_nome: string;
-  time_visitante_nome: string;
-  gols_casa: number;
-  gols_visitante: number;
-  data_hora: string;
+  round: number;
+  homeTeam: { id: string; name: string };
+  awayTeam: { id: string; name: string };
+  homeScore: number;
+  awayScore: number;
   status: string;
+  date?: string;
+}
+
+interface StandingsEntry {
+  id: string;
+  nome: string;
+  pts: number;
+  pj: number;
+  v: number;
+  e: number;
+  d: number;
+  gp: number;
+  gc: number;
+  sg: number;
+}
+
+interface ScorerEntry {
+  id: string;
+  nome: string;
+  time: string;
+  gols: number;
+}
+
+interface CardEntry {
+  id: string;
+  nome: string;
+  time: string;
+  amarelos: number;
+  vermelhos: number;
+  suspenso: boolean;
+}
+
+interface GameEvent {
+  type: string;
+  playerId: string;
+  playerName: string;
+  teamId: string;
 }
 
 interface Championship {
   id: string;
-  nome: string;
-  formato: string;
-  data_inicio: string;
+  name: string;
+  description?: string;
+  format: string;
+  isHomeAndAway: boolean;
+  status: string;
+  startDate?: string;
   times: Team[];
   jogos: Game[];
 }
@@ -52,160 +100,224 @@ const ChampionshipDetail = () => {
   const [champ, setChamp] = useState<Championship | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'tabela' | 'jogos' | 'times' | 'artilharia' | 'cartoes'>('tabela');
-  const [standings, setStandings] = useState<any[]>([]);
-  const [scorers, setScorers] = useState<any[]>([]);
-  const [cards, setCards] = useState<any[]>([]);
+  
+  const [standings, setStandings] = useState<StandingsEntry[]>([]);
+  const [scorers, setScorers] = useState<ScorerEntry[]>([]);
+  const [cards, setCards] = useState<CardEntry[]>([]);
+  
+  const [allPlayers, setAllPlayers] = useState<Player[]>([]);
+  const [showAddTeamModal, setShowAddTeamModal] = useState(false);
+  const [newTeamName, setNewTeamName] = useState("");
+  
+  const [selectedTeamForPlayer, setSelectedTeamForPlayer] = useState<string | null>(null);
+  const [selectedPlayerId, setSelectedPlayerId] = useState("");
+
   const [showResultModal, setShowResultModal] = useState(false);
+  const [selectedGame, setSelectedGame] = useState<Game | null>(null);
+  const [homeGoals, setHomeGoals] = useState(0);
+  const [awayGoals, setAwayGoals] = useState(0);
+  const [gameEvents, setGameEvents] = useState<GameEvent[]>([]);
 
   useEffect(() => {
     fetchChamp();
-    if (activeTab === 'tabela') fetchStandings();
-    else if (activeTab === 'artilharia') fetchScorers();
-    else if (activeTab === 'cartoes') fetchCards();
-  }, [id, activeTab]);
+    fetchPlayers();
+  }, [id]);
 
-  const fetchCards = async () => {
-    try {
-      const resp = await api.get(`/championships/${id}/cartoes`);
-      setCards(Array.isArray(resp.data) ? resp.data : []);
-    } catch (e) {
-      setCards([]);
-    }
-  };
-  const [selectedGame, setSelectedGame] = useState<Game | null>(null);
-  
-  const [homeGoals, setHomeGoals] = useState(0);
-  const [awayGoals, setAwayGoals] = useState(0);
-  const [gameEvents, setGameEvents] = useState<any[]>([]);
+  useEffect(() => {
+    if (activeTab === 'tabela') fetchStandings();
+    if (activeTab === 'artilharia') fetchScorers();
+    if (activeTab === 'cartoes') fetchCards();
+  }, [activeTab, id]);
 
   const fetchStandings = async () => {
     try {
-      const resp = await api.get(`/championships/${id}/classificacao`);
-      setStandings(Array.isArray(resp.data) ? resp.data : []);
-    } catch (e) {
-      setStandings([]);
+      const response = await api.get(`/championships/${id}/classificacao`);
+      setStandings(response.data);
+    } catch (error) {
+      console.error("Error fetching standings", error);
     }
   };
 
   const fetchScorers = async () => {
     try {
-      const resp = await api.get(`/championships/${id}/artilharia`);
-      setScorers(Array.isArray(resp.data) ? resp.data : []);
-    } catch (e) {
-      setScorers([]);
+      const response = await api.get(`/championships/${id}/artilharia`);
+      setScorers(response.data);
+    } catch (error) {
+      console.error("Error fetching scorers", error);
+    }
+  };
+
+  const fetchCards = async () => {
+    try {
+      const response = await api.get(`/championships/${id}/cartoes`);
+      setCards(response.data);
+    } catch (error) {
+      console.error("Error fetching cards", error);
     }
   };
 
   const fetchChamp = async () => {
     try {
       const response = await api.get(`/championships/${id}`);
-      const data = response.data;
-      if (data) {
-        if (!data.times) data.times = [];
-        if (!data.jogos) data.jogos = [];
-      }
-      setChamp(data);
+      setChamp(response.data);
     } catch (error) {
-      console.warn("Fetch failed, searching local championship");
-      const locals = getLocalData("championships");
-      const found = locals.find((c: any) => c.id === id);
-      if (found) {
-        if (!found.times) found.times = [];
-        if (!found.jogos) found.jogos = [];
-        setChamp(found);
-      } else {
-        toast.error("Erro ao carregar campeonato.");
-      }
+      toast.error("Erro ao carregar campeonato.");
+      navigate("/championships");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGenerateTable = async () => {
+  const fetchPlayers = async () => {
     try {
-      await api.post(`/championships/${id}/gerar_tabela`);
-      toast.success("Tabela gerada com sucesso!");
-      fetchChamp();
+      const response = await api.get("/players");
+      setAllPlayers(response.data);
     } catch (error) {
-      toast.error("Erro ao gerar tabela.");
+      console.error("Error fetching players", error);
     }
   };
 
-  const handleAddTeam = async () => {
-    const nome = prompt("Nome do Time:");
-    if (!nome) return;
+  const handleGenerateTable = async () => {
+    if (!champ || champ.times.length < 2) {
+      toast.error("Adicione pelo menos 2 times para gerar a tabela.");
+      return;
+    }
+    
+    if (champ.jogos.length > 0 && !confirm("Isso apagará a tabela atual e gerará uma nova. Continuar?")) {
+      return;
+    }
+
     try {
-      // Small hack for demo: we can't easily add to a list in mock without a specific endpoint
-      // but Champ model has 'times' relation. In Django it's a separate model.
-      await api.post(`/championships/${id}/times`, { nome });
+      setLoading(true);
+      await api.post(`/championships/${id}/gerar_tabela`);
+      toast.success("Tabela gerada com sucesso!");
+      fetchChamp();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || "Erro ao gerar tabela.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddTeam = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTeamName) return;
+    try {
+      await api.post(`/championships/${id}/times`, { name: newTeamName });
       toast.success("Time adicionado!");
+      setNewTeamName("");
+      setShowAddTeamModal(false);
       fetchChamp();
     } catch (error) {
       toast.error("Erro ao adicionar time.");
     }
   };
 
+  const handleDeleteTeam = async (teamId: string) => {
+    if (!confirm("Tem certeza que deseja remover este time?")) return;
+    try {
+      await api.delete(`/championships/times/${teamId}`);
+      toast.success("Time removido!");
+      fetchChamp();
+    } catch (error) {
+      toast.error("Erro ao remover time.");
+    }
+  };
+
+  const handleAddPlayer = async (teamId: string) => {
+    if (!selectedPlayerId) return;
+    try {
+      await api.post(`/championships/times/${teamId}/jogadores`, { playerId: selectedPlayerId });
+      toast.success("Jogador adicionado ao time!");
+      setSelectedTeamForPlayer(null);
+      setSelectedPlayerId("");
+      fetchChamp();
+    } catch (error) {
+      toast.error("Erro ao adicionar jogador.");
+    }
+  };
+
+  const handleRemovePlayer = async (jogadorTimeId: string) => {
+    if (!confirm("Remover jogador do time?")) return;
+    try {
+      await api.delete(`/championships/jogadores/${jogadorTimeId}`);
+      toast.success("Jogador removido!");
+      fetchChamp();
+    } catch (error) {
+      toast.error("Erro ao remover jogador.");
+    }
+  };
+
+  const handleUpdateMatch = async () => {
+    if (!selectedGame) return;
+    try {
+      await api.put(`/championships/jogos/${selectedGame.id}`, {
+        homeScore: homeGoals,
+        awayScore: awayGoals,
+        events: gameEvents,
+        status: 'finalizado'
+      });
+      toast.success("Resultado salvo!");
+      setShowResultModal(false);
+      fetchChamp();
+      if (activeTab === 'tabela') fetchStandings();
+    } catch (error) {
+      toast.error("Erro ao atualizar jogo.");
+    }
+  };
+
   if (loading) return (
-    <div className="flex flex-col items-center justify-center p-12 bg-app-bg min-h-screen space-y-4">
+    <div className="flex flex-col items-center justify-center p-12 min-screen space-y-4">
       <Loader2 className="animate-spin text-blue-500 w-8 h-8" />
-      <span className="text-app-text-muted">Carregando campeonato...</span>
     </div>
   );
   
-  if (!champ) return (
-    <div className="p-12 text-center bg-app-bg min-h-screen space-y-4">
-      <div className="text-app-text-muted text-xl italic font-bold">Campeonato não encontrado.</div>
-      <button 
-        onClick={() => navigate("/championships")}
-        className="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-blue-700 transition"
-      >
-        Voltar para Campeonatos
-      </button>
-    </div>
-  );
+  if (!champ) return null;
 
   return (
     <div className="space-y-6 pb-20">
        <button 
         onClick={() => navigate("/championships")}
-        className="flex items-center text-app-text-muted hover:text-green-500 transition font-bold"
+        className="flex items-center text-app-text-muted hover:text-blue-500 transition font-bold"
       >
-        <ChevronLeft className="w-4 h-4 mr-1" /> Voltar para Campeonatos
+        <ChevronLeft className="w-4 h-4 mr-1" /> Voltar
       </button>
 
       <div className="bg-app-card rounded-3xl border border-app-border p-8 relative overflow-hidden shadow-2xl">
-        <div className="absolute top-0 right-0 p-8 opacity-5">
-           <Trophy className="w-40 h-40 text-app-text" />
-        </div>
         <div className="relative z-10">
-          <h1 className="text-3xl font-black text-app-text uppercase tracking-tighter">{champ.nome}</h1>
-          <div className="flex flex-wrap gap-4 mt-3">
-            <span className="text-[10px] text-app-text-muted font-black uppercase tracking-widest flex items-center bg-zinc-100 dark:bg-zinc-800/50 border border-app-border px-3 py-1.5 rounded-full shadow-inner">
-              <Calendar className="w-3.5 h-3.5 mr-1.5 text-zinc-500" />
-              Início: {champ.data_inicio ? new Date(champ.data_inicio).toLocaleDateString() : 'Não informada'}
-            </span>
-            <span className="text-[10px] text-app-text-muted font-black uppercase tracking-widest flex items-center bg-zinc-100 dark:bg-zinc-800/50 border border-app-border px-3 py-1.5 rounded-full shadow-inner">
+          <h1 className="text-3xl font-black text-app-text uppercase tracking-tighter">{champ.name}</h1>
+          <p className="text-app-text-muted mt-2 font-medium">{champ.description || "Sem descrição disponível."}</p>
+          
+          <div className="flex flex-wrap gap-4 mt-4">
+            <span className="text-[10px] text-app-text-muted font-black uppercase tracking-widest flex items-center bg-zinc-100 dark:bg-zinc-800/50 border border-app-border px-3 py-1.5 rounded-full">
               <Settings className="w-3.5 h-3.5 mr-1.5 text-zinc-500" />
-              {champ.formato?.replace('_', ' ') || 'Simples'}
+              {champ.format.replace('_', ' ')} {champ.isHomeAndAway ? '(Ida e Volta)' : '(Turno Único)'}
+            </span>
+            <span className={cn(
+              "text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border",
+              champ.status === 'rascunho' ? "bg-amber-500/10 text-amber-500 border-amber-500/20" : "bg-green-500/10 text-green-500 border-green-500/20"
+            )}>
+              {champ.status}
             </span>
           </div>
 
-          <div className="mt-8 flex gap-2 overflow-x-auto pb-4 scrollbar-hide">
+      <div className="mt-8 flex gap-2 overflow-x-auto pb-4">
             {[
               { id: 'tabela', icon: TableIcon, label: 'Classificação' },
-              { id: 'jogos', icon: Play, label: 'Tabela de Jogos' },
+              { id: 'jogos', icon: Play, label: 'Jogos' },
+              { id: 'times', icon: Users, label: 'Times' },
               { id: 'artilharia', icon: Award, label: 'Artilharia' },
-              { id: 'cartoes', icon: ClipboardCheck, label: 'Cartões' },
-              { id: 'times', icon: Users, label: 'Times' }
+              { id: 'cartoes', icon: ClipboardCheck, label: 'Cartões' }
             ].map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center px-6 py-2.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                className={cn(
+                  "flex items-center px-6 py-2.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap",
                   activeTab === tab.id 
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/30' 
-                  : 'bg-zinc-100 dark:bg-zinc-800 text-app-text-muted border border-app-border hover:bg-zinc-200 dark:hover:bg-zinc-700 hover:text-app-text'
-                }`}
+                  ? 'bg-blue-600 text-white shadow-lg' 
+                  : 'bg-zinc-100 dark:bg-zinc-800 text-app-text-muted border border-app-border'
+                )}
               >
                 <tab.icon className="w-3.5 h-3.5 mr-2" />
                 {tab.label}
@@ -218,19 +330,20 @@ const ChampionshipDetail = () => {
       <div className="bg-app-card rounded-3xl border border-app-border p-8 shadow-sm">
         {activeTab === 'tabela' && (
           <div className="space-y-6">
-             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-                <h2 className="text-xl font-black text-app-text uppercase tracking-tight">Classificação Atual</h2>
-                {champ.jogos?.length === 0 && (
+             <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-black text-app-text uppercase tracking-tight">Classificação</h2>
+                {champ.jogos.length === 0 && (
                    <button 
                      onClick={handleGenerateTable}
-                     className="bg-green-600 text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest flex items-center shadow-lg shadow-green-900/20 hover:bg-green-700 transition active:scale-95"
+                     className="bg-green-600 text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest flex items-center shadow-lg hover:bg-green-700 transition"
                    >
-                     <Play className="w-3.5 h-3.5 mr-2 fill-current" />
-                     Gerar Todos os Jogos
+                     <Play className="w-3.5 h-3.5 mr-2" />
+                     Gerar Tabela
                    </button>
                 )}
              </div>
-             <div className="overflow-x-auto rounded-2xl border border-app-border bg-app-bg/20">
+             
+             <div className="overflow-x-auto rounded-3xl border border-app-border bg-app-bg/20">
                <table className="w-full text-sm">
                   <thead className="bg-zinc-100 dark:bg-zinc-800/50 font-black text-app-text-muted uppercase text-[10px] tracking-widest">
                     <tr>
@@ -247,22 +360,30 @@ const ChampionshipDetail = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-app-border">
-                    {(standings && Array.isArray(standings) && standings.length > 0 ? standings : (champ.times || [])).map((team, idx) => (
-                      <tr key={team.id || idx} className="hover:bg-app-bg/30 transition-colors group">
+                    {standings.map((team, idx) => (
+                      <tr key={team.id} className="hover:bg-app-bg/30 transition-colors group">
                         <td className="px-4 py-5 font-black text-app-text-muted">{idx + 1}º</td>
-                        <td className="px-4 py-5 font-black text-app-text group-hover:text-blue-500 transition-colors uppercase tracking-tight">{team.nome || 'Time'}</td>
-                        <td className="px-4 py-5 text-center font-black text-blue-500 text-lg">{team.pts || 0}</td>
-                        <td className="px-4 py-5 text-center font-bold text-app-text-muted">{team.pj || 0}</td>
-                        <td className="px-4 py-5 text-center font-bold text-green-500">{team.v || 0}</td>
-                        <td className="px-4 py-5 text-center font-bold text-app-text-muted">{team.e || 0}</td>
-                        <td className="px-4 py-5 text-center font-bold text-red-500">{team.d || 0}</td>
-                        <td className="px-4 py-5 text-center font-bold text-app-text-muted">{team.gp || 0}</td>
-                        <td className="px-4 py-5 text-center font-bold text-app-text-muted">{team.gc || 0}</td>
-                        <td className={`px-4 py-5 text-center font-black ${Number(team.sg || 0) > 0 ? 'text-green-500' : Number(team.sg || 0) < 0 ? 'text-red-500' : 'text-app-text-muted'}`}>
-                          {team.sg || 0}
+                        <td className="px-4 py-5 font-black text-app-text group-hover:text-blue-500 transition-colors uppercase tracking-tight border-l-4 border-transparent hover:border-blue-500">{team.nome}</td>
+                        <td className="px-4 py-5 text-center font-black text-blue-500 text-lg">{team.pts}</td>
+                        <td className="px-4 py-5 text-center font-bold text-app-text-muted">{team.pj}</td>
+                        <td className="px-4 py-5 text-center font-bold text-green-500">{team.v}</td>
+                        <td className="px-4 py-5 text-center font-bold text-app-text-muted">{team.e}</td>
+                        <td className="px-4 py-5 text-center font-bold text-red-500">{team.d}</td>
+                        <td className="px-4 py-5 text-center font-bold text-app-text-muted">{team.gp}</td>
+                        <td className="px-4 py-5 text-center font-bold text-app-text-muted">{team.gc}</td>
+                        <td className={cn(
+                          "px-4 py-5 text-center font-black",
+                          team.sg > 0 ? "text-green-500" : team.sg < 0 ? "text-red-500" : "text-app-text-muted"
+                        )}>
+                          {team.sg}
                         </td>
                       </tr>
                     ))}
+                    {standings.length === 0 && (
+                      <tr>
+                        <td colSpan={10} className="py-20 text-center text-app-text-muted italic">Nenhum dado de classificação disponível.</td>
+                      </tr>
+                    )}
                   </tbody>
                </table>
              </div>
@@ -271,343 +392,423 @@ const ChampionshipDetail = () => {
 
         {activeTab === 'jogos' && (
           <div className="space-y-6">
-             <div className="flex justify-between items-center">
-                <h2 className="text-xl font-black text-app-text uppercase tracking-tight">Calendário e Resultados</h2>
-             </div>
-             {champ.jogos?.length === 0 ? (
-                <div className="text-center py-20 text-app-text-muted bg-app-bg/30 rounded-3xl border-2 border-dashed border-app-border italic font-medium">Nenhum jogo gerado. Vá para a aba "Classificação" para gerar.</div>
+             <h2 className="text-xl font-black text-app-text uppercase tracking-tight">Jogos Gerados</h2>
+             {champ.jogos.length === 0 ? (
+                <div className="text-center py-20 bg-app-bg/30 rounded-3xl border-2 border-dashed border-app-border italic">
+                   Gere a tabela para visualizar os jogos.
+                </div>
              ) : (
-                <div className="grid grid-cols-1 gap-4">
-                   {champ.jogos?.map(game => (
-                      <div key={game.id} className="bg-app-bg/30 border border-app-border rounded-3xl p-6 flex flex-col md:flex-row items-center justify-between hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all gap-6 group shadow-sm">
-                          <div className="flex-1 text-center md:text-right font-black text-app-text text-lg uppercase tracking-tight group-hover:text-blue-500 transition-colors">{game.time_casa_nome}</div>
-                          <div className="flex flex-col items-center gap-3">
-                            <div className="flex items-center gap-5 bg-app-bg/50 p-3 rounded-[2rem] border border-app-border shadow-inner">
-                               <span className={`text-4xl font-black w-14 h-14 flex items-center justify-center rounded-2xl ${game.status === 'realizado' ? 'bg-white dark:bg-zinc-800 text-app-text shadow-lg' : 'bg-app-bg text-app-text-muted'}`}>
-                                 {game.gols_casa ?? 0}
-                               </span>
-                               <span className="text-app-text-muted font-black text-xl italic tracking-tighter uppercase px-1">VS</span>
-                               <span className={`text-4xl font-black w-14 h-14 flex items-center justify-center rounded-2xl ${game.status === 'realizado' ? 'bg-white dark:bg-zinc-800 text-app-text shadow-lg' : 'bg-app-bg text-app-text-muted'}`}>
-                                 {game.gols_visitante ?? 0}
-                               </span>
-                            </div>
-                            <div className="text-[10px] font-black text-app-text-muted uppercase tracking-widest flex items-center gap-2">
-                               {game.data_hora ? new Date(game.data_hora).toLocaleDateString() : 'Agendado'} 
-                               <span className="w-1 h-1 bg-app-border rounded-full"></span>
-                               {game.status === 'realizado' ? <span className="text-green-500">Finalizado</span> : <span className="text-app-text-muted">Aguardando</span>}
-                            </div>
-                         </div>
-                         <div className="flex-1 items-center flex justify-between w-full md:w-auto">
-                            <div className="flex-1 text-center md:text-left font-black text-app-text text-lg uppercase tracking-tight group-hover:text-blue-500 transition-colors">{game.time_visitante_nome}</div>
-                            {game.status !== 'realizado' && (
-                               <button 
-                                 onClick={() => {
-                                   setSelectedGame(game);
-                                   setHomeGoals(0);
-                                   setAwayGoals(0);
-                                   setGameEvents([]);
-                                   setShowResultModal(true);
-                                 }}
-                                 className="ml-4 p-3 bg-blue-600 text-white rounded-2xl shadow-lg shadow-blue-900/20 hover:scale-110 active:scale-95 transition-all"
-                                 title="Registrar Resultado"
-                               >
-                                 <ClipboardCheck className="w-5 h-5" />
-                               </button>
-                            )}
-                         </div>
-                      </div>
+                <div className="space-y-8">
+                   {/* Group by rounds */}
+                   {Array.from(new Set(champ.jogos.map(j => j.round))).sort((a, b) => a - b).map(round => (
+                     <div key={round} className="space-y-4">
+                        <div className="flex items-center gap-4">
+                           <span className="bg-blue-600 text-white px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest italic">Rodada {round}</span>
+                           <div className="h-px flex-1 bg-app-border"></div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                           {champ.jogos.filter(j => j.round === round).map(game => (
+                              <div key={game.id} className="bg-app-card border border-app-border rounded-2xl p-4 flex items-center justify-between hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all shadow-sm">
+                                 <div className="flex-1 text-right font-bold truncate text-xs uppercase tracking-tight">{game.homeTeam.name}</div>
+                                 <div className="flex items-center gap-2 px-4 py-2 bg-app-bg/50 rounded-xl border border-app-border mx-2">
+                                    <span className="font-black text-lg w-6 text-center">{game.status === 'finalizado' ? game.homeScore : '-'}</span>
+                                    <span className="text-[8px] text-zinc-500 font-black">VS</span>
+                                    <span className="font-black text-lg w-6 text-center">{game.status === 'finalizado' ? game.awayScore : '-'}</span>
+                                 </div>
+                                 <div className="flex-1 text-left font-bold truncate text-xs uppercase tracking-tight">{game.awayTeam.name}</div>
+                                 <button 
+                                   onClick={() => {
+                                      setSelectedGame(game);
+                                      setHomeGoals(game.homeScore || 0);
+                                      setAwayGoals(game.awayScore || 0);
+                                      setGameEvents([]);
+                                      setShowResultModal(true);
+                                   }}
+                                   className="ml-2 p-2 text-blue-500 hover:bg-blue-500/10 rounded-lg transition"
+                                 >
+                                    <ClipboardCheck className="w-4 h-4" />
+                                 </button>
+                              </div>
+                           ))}
+                        </div>
+                     </div>
                    ))}
                 </div>
              )}
           </div>
         )}
 
-        {activeTab === 'artilharia' && (
-            <div className="space-y-6">
-                <h2 className="text-xl font-black text-app-text uppercase tracking-tight">Mesa de Artilheiros</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {Array.isArray(scorers) && scorers.map((scorer, idx) => (
-                        <div key={scorer.id || idx} className="bg-app-bg/30 border border-app-border rounded-[2.5rem] p-6 flex items-center gap-6 relative shadow-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all group overflow-hidden">
-                            <div className="absolute -top-2 -right-4 text-7xl font-black text-app-text/5 group-hover:text-amber-500/10 transition-colors italic">{idx + 1}º</div>
-                            <div className="w-20 h-20 bg-amber-500/10 border-2 border-amber-500/20 rounded-3xl flex items-center justify-center relative overflow-hidden shadow-inner shrink-0 scale-90 group-hover:scale-100 transition-transform">
-                                <Award className="w-10 h-10 text-amber-500" />
-                            </div>
-                            <div className="min-w-0">
-                                <div className="text-lg font-black text-app-text uppercase tracking-tighter truncate">{scorer.nome || 'Jogador'}</div>
-                                <div className="text-4xl font-black text-amber-500 mt-1 flex items-baseline gap-2">
-                                    {scorer.gols || 0} <span className="text-[10px] text-app-text-muted uppercase tracking-widest font-black italic">Gols</span>
-                                </div>
-                            </div>
+        {activeTab === 'times' && (
+          <div className="space-y-6">
+             <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-black text-app-text uppercase tracking-tight">Gestão de Times</h2>
+                <button 
+                  onClick={() => setShowAddTeamModal(true)}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest flex items-center shadow-lg hover:bg-blue-700 transition"
+                >
+                  <Plus className="w-4 h-4 mr-2" /> Adicionar Time
+                </button>
+             </div>
+             
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {champ.times.map(team => (
+                  <div key={team.id} className="bg-app-bg/30 border border-app-border rounded-3xl p-6 space-y-4">
+                     <div className="flex justify-between items-center bg-zinc-100 dark:bg-zinc-800 p-3 rounded-2xl">
+                        <div className="flex items-center gap-3">
+                           <div className="w-10 h-10 bg-blue-500 text-white flex items-center justify-center rounded-xl font-black text-xl">
+                              {team.name.charAt(0)}
+                           </div>
+                           <h3 className="font-black text-lg uppercase tracking-tight">{team.name}</h3>
                         </div>
-                    ))}
-                    {scorers.length === 0 && <div className="col-span-full py-20 text-center text-app-text-muted italic font-medium">Nenhum gol registrado até o momento.</div>}
-                </div>
-            </div>
+                        <button onClick={() => handleDeleteTeam(team.id)} className="text-app-text-muted hover:text-red-500 transition p-2">
+                           <Trash2 className="w-4 h-4" />
+                        </button>
+                     </div>
+
+                     <div className="space-y-2">
+                        <div className="flex justify-between items-center mb-1">
+                           <span className="text-[10px] font-black text-app-text-muted uppercase tracking-widest pl-1">Jogadores ({team.jogadores.length})</span>
+                           <button 
+                             onClick={() => setSelectedTeamForPlayer(team.id)}
+                             className="text-blue-500 hover:text-blue-600 transition flex items-center gap-1 text-[10px] font-black uppercase tracking-widest"
+                           >
+                              <UserPlus className="w-3 h-3" /> Adicionar
+                           </button>
+                        </div>
+                        
+                        <div className="divide-y divide-app-border border border-app-border rounded-2xl bg-app-card overflow-hidden">
+                           {team.jogadores.map(jt => (
+                              <div key={jt.id} className="flex justify-between items-center p-3 hover:bg-app-bg/20 group">
+                                 <span className="text-sm font-bold text-app-text">{jt.player.name}</span>
+                                 <button onClick={() => handleRemovePlayer(jt.id)} className="text-zinc-600 dark:text-zinc-400 p-1 hover:text-red-500 transition">
+                                    <X className="w-3.5 h-3.5" />
+                                 </button>
+                              </div>
+                           ))}
+                           {team.jogadores.length === 0 && (
+                              <div className="p-4 text-center text-xs text-app-text-muted italic">Nenhum jogador escalado.</div>
+                           )}
+                        </div>
+                     </div>
+                  </div>
+                ))}
+                {champ.times.length === 0 && (
+                   <div className="col-span-full py-20 text-center text-app-text-muted bg-app-bg/30 rounded-3xl border-2 border-dashed border-app-border italic">
+                      Nenhum time cadastrado ainda. Comece adicionando um time!
+                   </div>
+                )}
+             </div>
+          </div>
+        )}
+
+        {activeTab === 'artilharia' && (
+           <div className="space-y-8">
+              <h2 className="text-xl font-black text-app-text uppercase tracking-tight flex items-center gap-2">
+                <Award className="w-5 h-5 text-amber-500" /> Artilharia do Campeonato
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {scorers.map((scorer, idx) => (
+                  <div key={scorer.id} className="bg-app-bg/30 border border-app-border rounded-3xl p-6 flex items-center gap-5 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all shadow-sm group">
+                     <div className="w-12 h-12 bg-amber-500/10 text-amber-500 flex items-center justify-center rounded-2xl font-black text-xl shadow-inner group-hover:scale-110 transition-transform">
+                        {idx + 1}º
+                     </div>
+                     <div className="flex-1 min-w-0">
+                        <div className="text-sm font-black text-app-text uppercase tracking-tight truncate">{scorer.nome}</div>
+                        <div className="text-[10px] font-black text-app-text-muted uppercase tracking-widest">{scorer.time}</div>
+                     </div>
+                     <div className="text-2xl font-black text-amber-500">{scorer.gols}</div>
+                  </div>
+                ))}
+                {scorers.length === 0 && (
+                   <div className="col-span-full py-20 text-center text-app-text-muted bg-app-bg/30 rounded-3xl border-2 border-dashed border-app-border italic font-medium">
+                      Nenhum gol registrado até o momento.
+                   </div>
+                )}
+              </div>
+
+               <button
+                  onClick={() => setActiveTab('cartoes')}
+                  className="w-full mt-4 flex items-center justify-center gap-2 text-app-text-muted hover:text-red-500 transition-all font-black text-[10px] uppercase tracking-widest py-4 border-t border-app-border"
+               >
+                  Ver Cartões e Suspensões <ChevronLeft className="w-3 h-3 rotate-180" />
+               </button>
+           </div>
         )}
 
         {activeTab === 'cartoes' && (
-            <div className="space-y-6">
-                <h2 className="text-xl font-black text-app-text uppercase tracking-tight">Resumo de Cartões</h2>
-                <div className="overflow-x-auto rounded-3xl border border-app-border bg-app-bg/20">
-                    <table className="w-full text-sm">
-                        <thead className="bg-zinc-100 dark:bg-zinc-800/50 text-app-text-muted font-black uppercase text-[10px] tracking-widest">
-                            <tr>
-                                <th className="px-6 py-5 text-left">Jogador</th>
-                                <th className="px-6 py-5 text-center">Amarelos</th>
-                                <th className="px-6 py-5 text-center">Vermelhos</th>
-                                <th className="px-6 py-5 text-center">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-app-border">
-                            {Array.isArray(cards) && cards.map((c, idx) => (
-                                <tr key={c.id || idx} className="hover:bg-app-bg/30 transition-colors">
-                                    <td className="px-6 py-5 font-black text-app-text uppercase tracking-tight">{c.nome || 'Jogador'}</td>
-                                    <td className="px-6 py-5 text-center"><span className="bg-yellow-500 w-8 h-10 inline-block rounded shadow-lg shadow-yellow-900/50 text-black flex items-center justify-center font-black text-lg">{c.amarelos || 0}</span></td>
-                                    <td className="px-6 py-5 text-center"><span className="bg-red-600 w-8 h-10 inline-block rounded shadow-lg shadow-red-900/50 text-white flex items-center justify-center font-black text-lg">{c.vermelhos || 0}</span></td>
-                                    <td className="px-6 py-5 text-center">
-                                        {c.suspenso ? (
-                                            <span className="bg-red-500/10 text-red-500 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-red-500/20">Suspenso</span>
-                                        ) : (
-                                            <span className="bg-green-500/10 text-green-500 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-green-500/20">Liberado</span>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
-                            {(Array.isArray(cards) ? cards.length : 0) === 0 && <tr><td colSpan={4} className="py-20 text-center text-app-text-muted italic font-medium uppercase tracking-widest">Nenhum cartão registrado.</td></tr>}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        )}
-        {activeTab === 'times' && (
-          <div className="space-y-6">
-             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-                <h2 className="text-xl font-black text-app-text uppercase tracking-tight">Times Participantes</h2>
-                <button 
-                  onClick={handleAddTeam}
-                  className="text-blue-500 text-[10px] font-black uppercase tracking-widest flex items-center hover:bg-blue-500/10 px-4 py-2 rounded-xl transition-all border border-blue-500/20"
-                >
-                  <Plus className="w-3.5 h-3.5 mr-1.5" /> Adicionar Time
-                </button>
-             </div>
-             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-               {(champ.times || []).map(team => (
-                 <div key={team.id} className="p-5 bg-app-bg/30 border border-app-border rounded-[2rem] flex items-center gap-5 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer transition-all shadow-sm group">
-                    <div className="w-14 h-14 bg-blue-500/10 rounded-2xl flex items-center justify-center text-blue-500 font-black text-2xl shadow-inner group-hover:scale-110 transition-transform">
-                       {team.nome.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="font-black text-app-text uppercase tracking-tighter text-lg">{team.nome}</div>
-                 </div>
-               ))}
-               {(champ.times || []).length === 0 && (
-                 <div className="col-span-full py-20 text-center text-app-text-muted italic font-medium">Nenhum time cadastrado.</div>
-               )}
-             </div>
-          </div>
+           <div className="space-y-8">
+              <h2 className="text-xl font-black text-app-text uppercase tracking-tight flex items-center gap-2">
+                <ClipboardCheck className="w-5 h-5 text-red-500" /> Cartões e Suspensões
+              </h2>
+              
+              <div className="overflow-x-auto rounded-3xl border border-app-border bg-app-bg/20">
+                 <table className="w-full text-sm">
+                    <thead className="bg-zinc-100 dark:bg-zinc-800/50 font-black text-app-text-muted uppercase text-[10px] tracking-widest">
+                       <tr>
+                          <th className="px-6 py-5 text-left">JOGADOR</th>
+                          <th className="px-6 py-5 text-left">TIME</th>
+                          <th className="px-6 py-5 text-center">AMARELOS</th>
+                          <th className="px-6 py-5 text-center">VERMELHOS</th>
+                          <th className="px-6 py-5 text-center">STATUS</th>
+                       </tr>
+                    </thead>
+                    <tbody className="divide-y divide-app-border">
+                       {cards.map((c) => (
+                          <tr key={c.id} className="hover:bg-app-bg/30 transition-colors">
+                             <td className="px-6 py-5 font-black text-app-text uppercase tracking-tight">{c.nome}</td>
+                             <td className="px-6 py-5 font-bold text-app-text-muted uppercase text-xs">{c.time}</td>
+                             <td className="px-6 py-5 text-center">
+                                <span className="bg-amber-400 w-6 h-8 inline-block rounded shadow-sm text-black flex items-center justify-center font-black text-xs mx-auto">
+                                   {c.amarelos}
+                                </span>
+                             </td>
+                             <td className="px-6 py-5 text-center">
+                                <span className="bg-red-600 w-6 h-8 inline-block rounded shadow-sm text-white flex items-center justify-center font-black text-xs mx-auto">
+                                   {c.vermelhos}
+                                </span>
+                             </td>
+                             <td className="px-6 py-5 text-center">
+                                {c.suspenso ? (
+                                   <span className="bg-red-500/10 text-red-500 border border-red-500/20 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest italic">Suspenso</span>
+                                ) : (
+                                   <span className="bg-green-500/10 text-green-500 border border-green-500/20 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest italic">Liberado</span>
+                                )}
+                             </td>
+                          </tr>
+                       ))}
+                       {cards.length === 0 && (
+                          <tr>
+                             <td colSpan={5} className="py-20 text-center text-app-text-muted italic">Nenhum cartão registrado.</td>
+                          </tr>
+                       )}
+                    </tbody>
+                 </table>
+              </div>
+           </div>
         )}
       </div>
 
-      {/* Result Modal */}
-      {showResultModal && selectedGame && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
-          <div className="bg-app-card rounded-[3rem] w-full max-w-2xl border border-app-border shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-             <div className="p-8 border-b border-app-border flex items-center justify-between bg-app-bg/50">
-                <h2 className="text-2xl font-black text-app-text uppercase tracking-tighter italic">Súmula do Jogo</h2>
-                <button onClick={() => setShowResultModal(false)} className="p-3 text-app-text-muted hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-app-text rounded-2xl transition-all shadow-inner border border-app-border"><X className="h-6 w-6" /></button>
-             </div>
-             <div className="flex-1 overflow-y-auto p-8 space-y-8">
-                <div className="bg-black p-10 rounded-[2.5rem] text-white shadow-2xl border border-zinc-800">
-                    <div className="grid grid-cols-3 items-center gap-8">
-                       <div className="text-center space-y-3">
-                          <div className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-2 py-1 bg-zinc-900 inline-block rounded-md border border-zinc-800">CASA</div>
-                          <div className="text-2xl font-black truncate uppercase tracking-tighter italic text-blue-400">{selectedGame.time_casa_nome}</div>
-                       </div>
-                       <div className="flex items-center justify-center gap-6">
-                          <input 
-                            type="number" 
-                            value={homeGoals}
-                            onChange={(e) => setHomeGoals(parseInt(e.target.value) || 0)}
-                            className="w-20 h-24 bg-zinc-900 border-2 border-zinc-800 rounded-3xl text-center text-5xl font-black focus:outline-none focus:ring-4 focus:ring-blue-500/30 transition-all text-white shadow-inner"
-                          />
-                          <span className="text-3xl font-black text-zinc-800 italic select-none">VS</span>
-                          <input 
-                            type="number" 
-                            value={awayGoals}
-                            onChange={(e) => setAwayGoals(parseInt(e.target.value) || 0)}
-                            className="w-20 h-24 bg-zinc-900 border-2 border-zinc-800 rounded-3xl text-center text-5xl font-black focus:outline-none focus:ring-4 focus:ring-blue-500/30 transition-all text-white shadow-inner"
-                          />
-                       </div>
-                       <div className="text-center space-y-3">
-                          <div className="text-[10px] font-black text-zinc-500 uppercase tracking-widest px-2 py-1 bg-zinc-900 inline-block rounded-md border border-zinc-800">FORA</div>
-                          <div className="text-2xl font-black truncate uppercase tracking-tighter italic text-red-400">{selectedGame.time_visitante_nome}</div>
-                       </div>
-                    </div>
-                </div>
-
-                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <button 
-                        onClick={async () => {
-                           const nome = prompt("Nome do Jogador:");
-                           if (!nome) return;
-                           try {
-                             const allPlayers = await api.get('/jogadores');
-                             const p = (allPlayers.data as any[]).find(p => p.nome.toLowerCase().includes(nome.toLowerCase()));
-                             if (p) {
-                                 const tipo = confirm("OK para Amarelo, Cancelar para Vermelho") ? 'ca' : 'cv';
-                                 setGameEvents([...gameEvents, { tipo: tipo === 'ca' ? 'cartao_amarelo' : 'cartao_vermelho', jogadorId: p.id, jogadorNome: p.nome, timeId: selectedGame.time_casa }]);
-                             } else {
-                               toast.error("Jogador não encontrado.");
-                             }
-                           } catch (e) {
-                             // Fallback to local
-                             const locals = DataService.getPlayers();
-                             const p = locals.find(p => p.nome.toLowerCase().includes(nome.toLowerCase()));
-                             if (p) {
-                               const tipo = confirm("OK para Amarelo, Cancelar para Vermelho") ? 'ca' : 'cv';
-                               setGameEvents([...gameEvents, { tipo: tipo === 'ca' ? 'cartao_amarelo' : 'cartao_vermelho', jogadorId: p.id, jogadorNome: p.nome, timeId: selectedGame.time_casa }]);
-                             } else {
-                               toast.error("Jogador não encontrado.");
-                             }
-                           }
-                        }}
-                        className="p-5 rounded-2xl border border-app-border bg-app-bg/30 text-app-text-muted font-black uppercase tracking-widest text-[10px] hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-app-text transition-all flex items-center justify-center gap-2"
-                      >
-                         <Plus className="w-3.5 h-3.5" /> Cartão {selectedGame.time_casa_nome}
-                      </button>
-                      <button 
-                        onClick={async () => {
-                            const nome = prompt("Nome do Jogador:");
-                            if (!nome) return;
-                            try {
-                              const allPlayers = await api.get('/jogadores');
-                              const p = (allPlayers.data as any[]).find(p => p.nome.toLowerCase().includes(nome.toLowerCase()));
-                              if (p) {
-                                  const tipo = confirm("OK para Amarelo, Cancelar para Vermelho") ? 'ca' : 'cv';
-                                  setGameEvents([...gameEvents, { tipo: tipo === 'ca' ? 'cartao_amarelo' : 'cartao_vermelho', jogadorId: p.id, jogadorNome: p.nome, timeId: selectedGame.time_visitante }]);
-                              } else {
-                                toast.error("Jogador não encontrado.");
-                              }
-                            } catch (e) {
-                               const locals = DataService.getPlayers();
-                               const p = locals.find(p => p.nome.toLowerCase().includes(nome.toLowerCase()));
-                               if (p) {
-                                  const tipo = confirm("OK para Amarelo, Cancelar para Vermelho") ? 'ca' : 'cv';
-                                  setGameEvents([...gameEvents, { tipo: tipo === 'ca' ? 'cartao_amarelo' : 'cartao_vermelho', jogadorId: p.id, jogadorNome: p.nome, timeId: selectedGame.time_visitante }]);
-                               } else {
-                                 toast.error("Jogador não encontrado.");
-                               }
-                            }
-                        }}
-                        className="p-5 rounded-2xl border border-app-border bg-app-bg/30 text-app-text-muted font-black uppercase tracking-widest text-[10px] hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-app-text transition-all flex items-center justify-center gap-2"
-                      >
-                         <Plus className="w-3.5 h-3.5" /> Cartão {selectedGame.time_visitante_nome}
-                      </button>
-                   </div>
-                   
-                   <div className="space-y-6">
-                      <h3 className="text-xs font-black text-app-text-muted uppercase tracking-[0.2em] flex items-center gap-2 px-2">
-                        <Award className="w-4 h-4 text-amber-500" /> Registrar Gols
-                      </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                       <button 
-                         onClick={async () => {
-                            const nome = prompt("Nome do artilheiro (ou ID):");
-                            if (!nome) return;
-                            try {
-                              const allPlayers = await api.get('/jogadores');
-                              const p = (allPlayers.data as any[]).find(p => p.nome.toLowerCase().includes(nome.toLowerCase()));
-                              if (p) {
-                                  setGameEvents([...gameEvents, { tipo: 'gol', jogadorId: p.id, jogadorNome: p.nome, timeId: selectedGame.time_casa }]);
-                                  setHomeGoals(prev => prev + 1);
-                              } else { toast.error("Jogador não encontrado."); }
-                            } catch (e) {
-                               const locals = DataService.getPlayers();
-                               const p = locals.find(p => p.nome.toLowerCase().includes(nome.toLowerCase()));
-                               if (p) {
-                                  setGameEvents([...gameEvents, { tipo: 'gol', jogadorId: p.id, jogadorNome: p.nome, timeId: selectedGame.time_casa }]);
-                                  setHomeGoals(prev => prev + 1);
-                               } else { toast.error("Jogador não encontrado."); }
-                            }
-                         }}
-                         className="p-5 rounded-2xl border border-app-border bg-app-bg/50 text-green-500 font-black uppercase tracking-widest text-[10px] hover:bg-green-500/10 transition-all flex items-center justify-center gap-2 shadow-sm"
-                       >
-                          <Plus className="w-3.5 h-3.5" /> Gol {selectedGame.time_casa_nome}
-                       </button>
-                       <button 
-                         onClick={async () => {
-                             const nome = prompt("Nome do artilheiro (ou ID):");
-                             if (!nome) return;
-                             try {
-                               const allPlayers = await api.get('/jogadores');
-                               const p = (allPlayers.data as any[]).find(p => p.nome.toLowerCase().includes(nome.toLowerCase()));
-                               if (p) {
-                                   setGameEvents([...gameEvents, { tipo: 'gol', jogadorId: p.id, jogadorNome: p.nome, timeId: selectedGame.time_visitante }]);
-                                   setAwayGoals(prev => prev + 1);
-                               } else { toast.error("Jogador não encontrado."); }
-                             } catch (e) {
-                                const locals = DataService.getPlayers();
-                                const p = locals.find(p => p.nome.toLowerCase().includes(nome.toLowerCase()));
-                                if (p) {
-                                   setGameEvents([...gameEvents, { tipo: 'gol', jogadorId: p.id, jogadorNome: p.nome, timeId: selectedGame.time_visitante }]);
-                                   setAwayGoals(prev => prev + 1);
-                                } else { toast.error("Jogador não encontrado."); }
-                             }
-                         }}
-                         className="p-5 rounded-2xl border border-app-border bg-app-bg/50 text-green-500 font-black uppercase tracking-widest text-[10px] hover:bg-green-500/10 transition-all flex items-center justify-center gap-2 shadow-sm"
-                       >
-                          <Plus className="w-3.5 h-3.5" /> Gol {selectedGame.time_visitante_nome}
-                       </button>
-                    </div>
-                    
-                    <div className="space-y-3 pt-4">
-                       {gameEvents.map((e, idx) => (
-                         <div key={idx} className="group flex items-center justify-between bg-zinc-100 dark:bg-zinc-950 px-6 py-4 rounded-2xl border border-app-border shadow-inner font-black">
-                            <div className="flex items-center gap-4">
-                               <span className={cn(
-                                 "p-2 rounded-xl flex items-center justify-center",
-                                 e.tipo === 'gol' ? "bg-green-500/10 text-green-500" : "bg-yellow-500/10 text-yellow-500"
-                               )}>
-                                 {e.tipo === 'gol' ? <Trophy className="w-4 h-4" /> : <ClipboardCheck className="w-4 h-4" />}
-                               </span>
-                               <span className="font-black text-app-text uppercase tracking-tighter text-base italic">{e.jogadorNome}</span>
-                            </div>
-                            <button onClick={() => {
-                              setGameEvents(prev => prev.filter((_, i) => i !== idx));
-                              if (e.tipo === 'gol') {
-                                if (e.timeId === selectedGame.time_casa) setHomeGoals(prev => Math.max(0, prev - 1));
-                                else setAwayGoals(prev => Math.max(0, prev - 1));
-                              }
-                            }} className="p-2 text-app-text-muted hover:text-red-500 transition-all transform hover:rotate-90 group-hover:opacity-100"><X className="w-5 h-5" /></button>
-                         </div>
-                       ))}
-                    </div>
+      {/* Add Team Modal */}
+      {showAddTeamModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+           <div className="bg-app-card rounded-3xl p-8 max-w-sm w-full border border-app-border shadow-2xl">
+              <h2 className="text-2xl font-black mb-6 text-app-text uppercase tracking-tighter">Novo Time</h2>
+              <form onSubmit={handleAddTeam} className="space-y-4">
+                 <div>
+                    <label className="block text-[10px] font-black text-app-text-muted uppercase tracking-widest mb-1 pl-1">Nome do Time</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ex: OS VINGADORES"
+                      className="w-full px-4 py-3 bg-app-bg border border-app-border rounded-xl outline-none text-app-text font-bold"
+                      value={newTeamName}
+                      onChange={(e) => setNewTeamName(e.target.value)}
+                    />
                  </div>
-             </div>
-             <div className="p-8 bg-zinc-100 dark:bg-zinc-950/80 border-t border-app-border backdrop-blur-sm">
-                <button 
-                  onClick={async () => {
-                     try {
-                        await api.post(`/championships/${id}/jogos/${selectedGame.id}/registrar`, {
-                           gols_casa: homeGoals,
-                           gols_visitante: awayGoals,
-                           eventos: gameEvents
-                        });
-                        toast.success("Resultado finalizado!");
-                        setShowResultModal(false);
-                        fetchChamp();
-                        fetchStandings();
-                        fetchScorers();
-                     } catch (e) {
-                        toast.error("Erro ao salvar resultado.");
-                     }
-                  }}
-                  className="w-full bg-blue-600 text-white py-5 rounded-[2rem] font-black text-xl shadow-2xl shadow-blue-900/40 hover:bg-blue-700 hover:scale-[1.02] active:scale-95 transition-all uppercase tracking-widest border-t border-blue-400/20"
-                >
-                   SALVAR RESULTADO
-                </button>
-             </div>
-          </div>
+                 <div className="flex gap-4 pt-4">
+                    <button type="button" onClick={() => setShowAddTeamModal(false)} className="flex-1 px-4 py-3 text-app-text-muted font-black uppercase text-[10px] tracking-widest">Cancelar</button>
+                    <button type="submit" className="flex-1 bg-blue-600 text-white px-4 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest">Confirmar</button>
+                 </div>
+              </form>
+           </div>
         </div>
+      )}
+
+      {/* Select Player Modal (Add to Team) */}
+      {selectedTeamForPlayer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+           <div className="bg-app-card rounded-3xl p-8 max-w-sm w-full border border-app-border shadow-2xl">
+              <h2 className="text-xl font-black mb-6 text-app-text uppercase tracking-tighter">Escalar Jogador</h2>
+              <div className="space-y-4">
+                 <div>
+                    <label className="block text-[10px] font-black text-app-text-muted uppercase tracking-widest mb-1 pl-1">Selecione o Jogador</label>
+                    <select
+                      className="w-full px-4 py-3 bg-app-bg border border-app-border rounded-xl outline-none text-app-text font-bold appearance-none cursor-pointer"
+                      value={selectedPlayerId}
+                      onChange={(e) => setSelectedPlayerId(e.target.value)}
+                    >
+                       <option value="">Selecione...</option>
+                       {allPlayers.map(p => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
+                       ))}
+                    </select>
+                 </div>
+                 <div className="flex gap-4 pt-4">
+                    <button onClick={() => setSelectedTeamForPlayer(null)} className="flex-1 px-4 py-3 text-app-text-muted font-black uppercase text-[10px] tracking-widest">Cancelar</button>
+                    <button onClick={() => handleAddPlayer(selectedTeamForPlayer)} className="flex-1 bg-blue-600 text-white px-4 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest">Escalar</button>
+                 </div>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {/* Result Entry Modal */}
+      {showResultModal && selectedGame && (
+         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="bg-app-card rounded-[2.5rem] w-full max-w-2xl border border-app-border shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+               <div className="p-8 border-b border-app-border flex items-center justify-between">
+                  <h2 className="text-2xl font-black text-app-text uppercase tracking-tighter">Súmula do Jogo</h2>
+                  <button onClick={() => setShowResultModal(false)} className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl transition text-app-text-muted">
+                    <X className="w-6 h-6" />
+                  </button>
+               </div>
+               
+               <div className="flex-1 overflow-y-auto p-8 space-y-8">
+                  <div className="flex items-center justify-center gap-8 bg-zinc-100 dark:bg-zinc-800/50 p-8 rounded-[2rem] border border-app-border shadow-inner">
+                    <div className="text-center flex-1 min-w-0">
+                       <div className="text-xs font-black text-app-text uppercase tracking-tight truncate mb-3">{selectedGame.homeTeam.name}</div>
+                       <input 
+                         type="number" 
+                         className="w-20 h-24 bg-white dark:bg-app-card border-2 border-app-border rounded-3xl text-center text-5xl font-black text-app-text focus:border-blue-500 outline-none transition-all"
+                         value={homeGoals}
+                         onChange={(e) => setHomeGoals(parseInt(e.target.value) || 0)}
+                       />
+                    </div>
+                    <div className="font-black text-3xl italic text-app-text-muted select-none">VS</div>
+                    <div className="text-center flex-1 min-w-0">
+                       <div className="text-xs font-black text-app-text uppercase tracking-tight truncate mb-3">{selectedGame.awayTeam.name}</div>
+                       <input 
+                         type="number" 
+                         className="w-20 h-24 bg-white dark:bg-app-card border-2 border-app-border rounded-3xl text-center text-5xl font-black text-app-text focus:border-blue-500 outline-none transition-all"
+                         value={awayGoals}
+                         onChange={(e) => setAwayGoals(parseInt(e.target.value) || 0)}
+                       />
+                    </div>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div className="flex justify-between items-center px-2">
+                       <h3 className="text-xs font-black text-app-text-muted uppercase tracking-[0.2em] flex items-center gap-2">
+                          <Plus className="w-3 h-3" /> Registrar Eventos
+                       </h3>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                       {/* Team A Events Entry */}
+                       <div className="space-y-3">
+                          <span className="text-[10px] font-black text-app-text-muted uppercase px-3">{selectedGame.homeTeam.name}</span>
+                          <div className="flex gap-2">
+                             <select id="playerA" className="flex-1 bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs font-bold outline-none">
+                                <option value="">Jogador...</option>
+                                {champ.times.find(t => t.id === selectedGame.homeTeam.id)?.jogadores.map(jt => (
+                                   <option key={jt.id} value={jt.player.id}>{jt.player.name}</option>
+                                ))}
+                             </select>
+                             <button 
+                                onClick={() => {
+                                   const select = document.getElementById('playerA') as HTMLSelectElement;
+                                   const pId = select.value;
+                                   if (!pId) return;
+                                   const pName = select.options[select.selectedIndex].text;
+                                   setGameEvents([...gameEvents, { type: 'gol', playerId: pId, playerName: pName, teamId: selectedGame.homeTeam.id }]);
+                                   setHomeGoals(prev => prev + 1);
+                                   select.value = "";
+                                }}
+                                className="bg-green-600 text-white p-2 rounded-xl"
+                                title="Registrar Gol"
+                             >
+                                <Award className="w-4 h-4" />
+                             </button>
+                             <button 
+                                onClick={() => {
+                                   const select = document.getElementById('playerA') as HTMLSelectElement;
+                                   const pId = select.value;
+                                   if (!pId) return;
+                                   const pName = select.options[select.selectedIndex].text;
+                                   setGameEvents([...gameEvents, { type: 'cartao_amarelo', playerId: pId, playerName: pName, teamId: selectedGame.homeTeam.id }]);
+                                   select.value = "";
+                                }}
+                                className="bg-amber-500 text-white p-2 rounded-xl"
+                                title="Cartão Amarelo"
+                             >
+                                <div className="w-4 h-4 bg-amber-400 rounded-sm"></div>
+                             </button>
+                          </div>
+                       </div>
+
+                       {/* Team B Events Entry */}
+                       <div className="space-y-3">
+                          <span className="text-[10px] font-black text-app-text-muted uppercase px-3">{selectedGame.awayTeam.name}</span>
+                          <div className="flex gap-2">
+                             <select id="playerB" className="flex-1 bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs font-bold outline-none">
+                                <option value="">Jogador...</option>
+                                {champ.times.find(t => t.id === selectedGame.awayTeam.id)?.jogadores.map(jt => (
+                                   <option key={jt.id} value={jt.player.id}>{jt.player.name}</option>
+                                ))}
+                             </select>
+                             <button 
+                                onClick={() => {
+                                   const select = document.getElementById('playerB') as HTMLSelectElement;
+                                   const pId = select.value;
+                                   if (!pId) return;
+                                   const pName = select.options[select.selectedIndex].text;
+                                   setGameEvents([...gameEvents, { type: 'gol', playerId: pId, playerName: pName, teamId: selectedGame.awayTeam.id }]);
+                                   setAwayGoals(prev => prev + 1);
+                                   select.value = "";
+                                }}
+                                className="bg-green-600 text-white p-2 rounded-xl"
+                                title="Registrar Gol"
+                             >
+                                <Award className="w-4 h-4" />
+                             </button>
+                             <button 
+                                onClick={() => {
+                                   const select = document.getElementById('playerB') as HTMLSelectElement;
+                                   const pId = select.value;
+                                   if (!pId) return;
+                                   const pName = select.options[select.selectedIndex].text;
+                                   setGameEvents([...gameEvents, { type: 'cartao_amarelo', playerId: pId, playerName: pName, teamId: selectedGame.awayTeam.id }]);
+                                   select.value = "";
+                                }}
+                                className="bg-amber-500 text-white p-2 rounded-xl"
+                                title="Cartão Amarelo"
+                             >
+                                <div className="w-4 h-4 bg-amber-400 rounded-sm"></div>
+                             </button>
+                          </div>
+                       </div>
+                    </div>
+
+                    <div className="space-y-2 mt-4 max-h-40 overflow-y-auto pr-2 scrollbar-hide">
+                       {gameEvents.map((event, idx) => (
+                          <div key={idx} className="flex justify-between items-center bg-zinc-100 dark:bg-zinc-900 border border-app-border px-4 py-3 rounded-2xl">
+                             <div className="flex items-center gap-3">
+                                {event.type === 'gol' && <Trophy className="w-3.5 h-3.5 text-green-500" />}
+                                {event.type === 'cartao_amarelo' && <div className="w-3 h-4 bg-amber-400 rounded-sm"></div>}
+                                {event.type === 'cartao_vermelho' && <div className="w-3 h-4 bg-red-600 rounded-sm"></div>}
+                                <span className="text-xs font-black uppercase tracking-tight italic">{event.playerName}</span>
+                                <span className="text-[8px] font-black text-app-text-muted uppercase tracking-widest">({champ.times.find(t => t.id === event.teamId)?.name})</span>
+                             </div>
+                             <button onClick={() => {
+                                if (event.type === 'gol') {
+                                   if (event.teamId === selectedGame.homeTeam.id) setHomeGoals(prev => Math.max(0, prev - 1));
+                                   else setAwayGoals(prev => Math.max(0, prev - 1));
+                                }
+                                setGameEvents(prev => prev.filter((_, i) => i !== idx));
+                             }} className="p-1 hover:text-red-500 transition">
+                                <X className="w-4 h-4" />
+                             </button>
+                          </div>
+                       ))}
+                       {gameEvents.length === 0 && (
+                          <div className="py-8 text-center text-[10px] font-black text-app-text-muted uppercase tracking-widest italic border-2 border-dashed border-app-border rounded-2xl">
+                             Nenhum evento registrado ainda.
+                          </div>
+                       )}
+                    </div>
+                  </div>
+               </div>
+
+               <div className="p-8 border-t border-app-border">
+                  <button 
+                     onClick={handleUpdateMatch}
+                     className="w-full bg-blue-600 text-white py-5 rounded-[2rem] font-black text-lg shadow-2xl shadow-blue-900/30 hover:bg-blue-700 transition-all uppercase tracking-[0.2em]"
+                  >
+                     Finalizar Jogo e Súmula
+                  </button>
+               </div>
+            </div>
+         </div>
       )}
     </div>
   );

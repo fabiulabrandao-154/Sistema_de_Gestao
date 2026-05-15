@@ -1,11 +1,13 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import cors from "cors";
-import dotenv from "dotenv";
-import mongoose from "mongoose";
+import prisma from "./backend/src/lib/prisma";
 import { setupGameSockets } from "./backend/src/sockets/gameSocket";
 
 // Import new modular backend
@@ -16,8 +18,6 @@ import playerRoutes from "./backend/src/routes/playerRoutes";
 import peladaJogadorRoutes from "./backend/src/routes/peladaJogadorRoutes";
 import eventRoutes from "./backend/src/routes/eventRoutes";
 
-dotenv.config();
-
 const PORT = 3000;
 
 async function startServer() {
@@ -27,22 +27,12 @@ async function startServer() {
     cors: { origin: "*", methods: ["GET", "POST"] },
   });
 
-  // Connect to MongoDB
-  if (process.env.MONGODB_URI) {
-    try {
-      console.log("Attempting to connect to MongoDB...");
-      await mongoose.connect(process.env.MONGODB_URI, {
-        serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of hanging
-      });
-      console.log("Connected to MongoDB via Mongoose");
-    } catch (err) {
-      console.error("MongoDB connection error:", err);
-      // Disable command buffering to prevent hanging requests
-      mongoose.set('bufferCommands', false);
-    }
-  } else {
-    console.warn("MONGODB_URI not found. Events might not work.");
-    mongoose.set('bufferCommands', false);
+  // Connect to Database via Prisma
+  try {
+    await prisma.$connect();
+    console.log("Connected to Database via Prisma (SQLite)");
+  } catch (err) {
+    console.error("Database connection error:", err);
   }
 
   app.use(cors());

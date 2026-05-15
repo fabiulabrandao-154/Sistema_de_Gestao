@@ -23,6 +23,7 @@ const Championships = () => {
   const [formData, setFormData] = useState({ 
     nome: "", 
     formato: "pontos_corridos",
+    isHomeAndAway: false,
     data_inicio: new Date().toISOString().split('T')[0],
     data_fim: new Date().toISOString().split('T')[0]
   });
@@ -34,15 +35,10 @@ const Championships = () => {
   const fetchChampionships = async () => {
     try {
       const response = await api.get("/championships");
-      const data = Array.isArray(response.data) ? response.data : [];
-      
-      const locals = getLocalData("championships");
-      const combined = [...data, ...locals.filter((l: any) => !data.some((d: any) => d.id === l.id))];
-      
-      setChampionships(combined);
+      setChampionships(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
-      console.warn("Fetch failed, using local championships");
-      setChampionships(getLocalData("championships"));
+      console.error("Error fetching championships", error);
+      setChampionships([]);
     } finally {
       setIsLoading(false);
     }
@@ -51,33 +47,27 @@ const Championships = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    const newChampData = {
-      ...formData,
-      status: 'ativo',
-      times: [],
-      jogos: []
-    };
     try {
-      const response = await api.post("/championships", newChampData);
-      
-      // Salvar localmente com o ID real
-      saveLocalData("championships", { ...newChampData, id: response.data.id });
+      await api.post("/championships", {
+        titulo: formData.nome,
+        format: formData.formato,
+        isHomeAndAway: formData.isHomeAndAway,
+        startDate: formData.data_inicio,
+        endDate: formData.data_fim
+      });
       
       toast.success("Campeonato criado!");
       setShowModal(false);
       setFormData({ 
         nome: "", 
         formato: "pontos_corridos",
+        isHomeAndAway: false,
         data_inicio: new Date().toISOString().split('T')[0],
         data_fim: new Date().toISOString().split('T')[0]
       });
       fetchChampionships();
     } catch (error) {
-      // Fallback local
-      saveLocalData("championships", newChampData);
-      toast.success("Campeonato salvo localmente (servidor indisponível).");
-      setShowModal(false);
-      fetchChampionships();
+      toast.error("Erro ao criar campeonato.");
     } finally {
       setIsSubmitting(false);
     }
@@ -174,7 +164,7 @@ const Championships = () => {
                 />
               </div>
               
-              <div>
+               <div>
                 <label className="block text-[10px] font-black text-app-text-muted uppercase tracking-widest mb-1 pl-1">Formato</label>
                 <select 
                   className="w-full px-4 py-3 bg-app-bg border border-app-border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-app-text font-bold appearance-none cursor-pointer"
@@ -184,6 +174,17 @@ const Championships = () => {
                    <option value="pontos_corridos">Pontos Corridos</option>
                    <option value="grupos_mata">Grupos + Mata-Mata</option>
                 </select>
+              </div>
+
+              <div className="flex items-center gap-2 px-1">
+                <input
+                  type="checkbox"
+                  id="isHomeAndAway"
+                  className="w-4 h-4 rounded border-app-border"
+                  checked={formData.isHomeAndAway}
+                  onChange={(e) => setFormData({ ...formData, isHomeAndAway: e.target.checked })}
+                />
+                <label htmlFor="isHomeAndAway" className="text-[10px] font-black text-app-text-muted uppercase tracking-widest cursor-pointer">Jogos de Ida e Volta</label>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
