@@ -50,7 +50,8 @@ const Players = () => {
     try {
       if (isCloudEnabled) {
         const response = await api.get("/players");
-        setPlayers(response.data);
+        const sorted = response.data.sort((a: any, b: any) => (a.nome || "").localeCompare(b.nome || ""));
+        setPlayers(sorted);
       } else {
         const locals = DataService.getPlayers();
         locals.sort((a, b) => (a.nome || "").localeCompare(b.nome || ""));

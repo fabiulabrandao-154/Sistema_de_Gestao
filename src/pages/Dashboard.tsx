@@ -25,7 +25,7 @@ const Dashboard = () => {
     fetchDashboardData();
   }, []);
 
-  const fetchDashboardData = () => {
+  const fetchDashboardData = async () => {
     try {
       const players = DataService.getPlayers();
       const peladas = DataService.getPeladas();
@@ -37,8 +37,36 @@ const Dashboard = () => {
         { name: "Nível Médio", value: (players.reduce((acc: number, p: any) => acc + (p.nivel_estrelas || 0), 0) / (players.length || 1)).toFixed(1), icon: Trophy, color: "bg-orange-500" },
       ]);
 
-      const upcoming = peladas.filter(p => p.status !== 'encerrada' && p.status !== 'finalizada');
-      setRecentMatches(upcoming.slice(0, 5));
+      const upcomingPeladas = peladas.filter(p => p.status !== 'encerrada' && p.status !== 'finalizada').map(p => ({ ...p, type: 'pelada' }));
+      
+      let allMatches = [...upcomingPeladas];
+
+      try {
+        const response = await api.get("/championships");
+        const championships = response.data;
+        const upcomingChampMatches: any[] = [];
+        
+        championships.forEach((c: any) => {
+           if (c.jogos) {
+              c.jogos.filter((j: any) => j.status === 'agendada').forEach((j: any) => {
+                 upcomingChampMatches.push({
+                    id: `match-${j.id}`,
+                    titulo: `${j.homeTeam.name} vs ${j.awayTeam.name}`,
+                    data_hora: j.date || c.createdAt,
+                    local: c.name,
+                    status: 'agendada',
+                    type: 'campeonato'
+                 });
+              });
+           }
+        });
+        allMatches = [...allMatches, ...upcomingChampMatches];
+      } catch (e) {
+        console.warn("Championships fetch failed", e);
+      }
+
+      allMatches.sort((a, b) => new Date(a.data_hora).getTime() - new Date(b.data_hora).getTime());
+      setRecentMatches(allMatches.slice(0, 8));
 
     } catch (error) {
       console.error("Erro ao carregar dashboard");
@@ -113,20 +141,28 @@ const Dashboard = () => {
               recentMatches.map((match) => (
                 <Link
                   key={match.id}
-                  to={`/peladas/${match.id}`}
+                  to={match.type === 'campeonato' ? `/peladas/live/${match.id}` : `/peladas/${match.id}`}
                   className="grid grid-cols-4 p-4 border-b last:border-b-0 border-app-border hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors group"
                 >
-                  <span className="text-sm font-medium text-app-text truncate">{match.titulo}</span>
+                  <span className="text-sm font-medium text-app-text truncate flex items-center gap-2">
+                    {match.type === 'campeonato' && <Trophy className="w-3 h-3 text-amber-500" />}
+                    {match.titulo}
+                  </span>
                   <span className="text-sm text-app-text-muted font-mono">{new Date(match.data_hora).toLocaleDateString()}</span>
                   <span className="text-sm text-app-text font-semibold truncate">
                     {match.local}
                   </span>
-                  <span className={cn(
-                    "text-[10px] font-bold uppercase tracking-widest self-center px-2 py-1 rounded-full w-fit",
-                    match.status === 'agendada' ? "bg-blue-600/20 text-blue-500" : "bg-green-600/20 text-green-500"
-                  )}>
-                    {match.status}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={cn(
+                      "text-[10px] font-bold uppercase tracking-widest self-center px-2 py-1 rounded-full w-fit",
+                      match.status === 'agendada' ? "bg-blue-600/20 text-blue-500" : "bg-green-600/20 text-green-500"
+                    )}>
+                      {match.status}
+                    </span>
+                    {match.type === 'campeonato' && (
+                      <span className="text-[8px] font-black bg-amber-500 text-white px-1.5 py-0.5 rounded uppercase">CAMP</span>
+                    )}
+                  </div>
                 </Link>
               ))
             ) : (

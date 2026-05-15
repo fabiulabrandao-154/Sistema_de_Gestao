@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { 
   ChevronLeft, 
   Trophy, 
@@ -195,7 +195,10 @@ const ChampionshipDetail = () => {
   const fetchPlayers = async () => {
     try {
       const response = await api.get("/players");
-      setAllPlayers(response.data);
+      const sorted = response.data.sort((a: any, b: any) => 
+        (a.nome || a.name || "").localeCompare(b.nome || b.name || "")
+      );
+      setAllPlayers(sorted);
     } catch (error) {
       console.error("Error fetching players", error);
     }
@@ -246,6 +249,30 @@ const ChampionshipDetail = () => {
       fetchChamp();
     } catch (error) {
       toast.error("Erro ao remover time.");
+    }
+  };
+
+  const [isAddingNewPlayer, setIsAddingNewPlayer] = useState(false);
+  const [newPlayerName, setNewPlayerName] = useState("");
+
+  const handleCreateAndAddPlayer = async (teamId: string) => {
+    if (!newPlayerName) return;
+    try {
+      // 1. Create the player
+      const playerRes = await api.post("/players", { nome: newPlayerName });
+      const newPlayer = playerRes.data;
+      
+      // 2. Add to team
+      await api.post(`/championships/times/${teamId}/jogadores`, { playerId: newPlayer.id });
+      
+      toast.success("Jogador criado e escalado!");
+      setSelectedTeamForPlayer(null);
+      setNewPlayerName("");
+      setIsAddingNewPlayer(false);
+      fetchChamp();
+      fetchPlayers(); // Refresh the list
+    } catch (error) {
+      toast.error("Erro ao criar jogador.");
     }
   };
 
@@ -452,24 +479,34 @@ const ChampionshipDetail = () => {
                                     <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: game.awayTeam.color || '#3b82f6' }}></div>
                                     {game.awayTeam.name}
                                  </div>
-                                 <button 
-                                   onClick={() => {
-                                      setSelectedGame(game);
-                                      setHomeGoals(game.homeScore || 0);
-                                      setAwayGoals(game.awayScore || 0);
-                                      // Load existing events if any
-                                      setGameEvents(game.eventos?.map((e: any) => ({
-                                        type: e.type,
-                                        playerId: e.playerId,
-                                        playerName: e.player?.name || 'Jogador',
-                                        teamId: e.teamId
-                                      })) || []);
-                                      setShowResultModal(true);
-                                   }}
-                                   className="ml-2 p-2 text-blue-500 hover:bg-blue-500/10 rounded-lg transition"
-                                 >
-                                    <ClipboardCheck className="w-4 h-4" />
-                                 </button>
+                                 <div className="flex items-center gap-1">
+                                    <button 
+                                       onClick={() => {
+                                          setSelectedGame(game);
+                                          setHomeGoals(game.homeScore || 0);
+                                          setAwayGoals(game.awayScore || 0);
+                                          // Load existing events if any
+                                          setGameEvents(game.eventos?.map((e: any) => ({
+                                             type: e.type,
+                                             playerId: e.playerId,
+                                             playerName: e.player?.name || 'Jogador',
+                                             teamId: e.teamId
+                                          })) || []);
+                                          setShowResultModal(true);
+                                       }}
+                                       className="p-2 text-blue-500 hover:bg-blue-500/10 rounded-lg transition"
+                                       title="Súmula Rápida"
+                                    >
+                                       <ClipboardCheck className="w-4 h-4" />
+                                    </button>
+                                    <Link 
+                                       to={`/peladas/live/match-${game.id}`}
+                                       className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition"
+                                       title="Modo AO VIVO"
+                                    >
+                                       <Play className="w-4 h-4" />
+                                    </Link>
+                                 </div>
                               </div>
                            ))}
                         </div>
@@ -519,7 +556,7 @@ const ChampionshipDetail = () => {
                         </div>
                         
                         <div className="divide-y divide-app-border border border-app-border rounded-2xl bg-app-card overflow-hidden">
-                           {team.jogadores.map(jt => (
+                           {[...team.jogadores].sort((a, b) => (a.player.nome || a.player.name || "").localeCompare(b.player.nome || b.player.name || "")).map(jt => (
                               <div key={jt.id} className="flex justify-between items-center p-3 hover:bg-app-bg/20 group">
                                  <span className="text-sm font-bold text-app-text">{jt.player.nome || jt.player.name}</span>
                                  <button onClick={() => handleRemovePlayer(jt.id)} className="text-zinc-600 dark:text-zinc-400 p-1 hover:text-red-500 transition">
@@ -707,25 +744,63 @@ const ChampionshipDetail = () => {
       {selectedTeamForPlayer && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
            <div className="bg-app-card rounded-3xl p-8 max-w-sm w-full border border-app-border shadow-2xl">
-              <h2 className="text-xl font-black mb-1 text-app-text uppercase tracking-tighter">Escalar Jogador</h2>
-              <p className="text-[10px] text-app-text-muted mb-6 uppercase tracking-widest font-black">Utilize seus jogadores cadastrados</p>
-              <div className="space-y-4">
-                 <div>
-                    <label className="block text-[10px] font-black text-app-text-muted uppercase tracking-widest mb-1 pl-1">Selecione o Jogador</label>
-                    <select
-                      className="w-full px-4 py-3 bg-app-bg border border-app-border rounded-xl outline-none text-app-text font-bold appearance-none cursor-pointer"
-                      value={selectedPlayerId}
-                      onChange={(e) => setSelectedPlayerId(e.target.value)}
-                    >
-                       <option value="">Selecione...</option>
-                       {allPlayers.map(p => (
-                          <option key={p.id} value={p.id}>{p.nome || p.name}</option>
-                       ))}
-                    </select>
-                 </div>
+              <div className="flex justify-between items-start mb-1">
+                <div>
+                   <h2 className="text-xl font-black text-app-text uppercase tracking-tighter">Escalar Jogador</h2>
+                   <p className="text-[10px] text-app-text-muted uppercase tracking-widest font-black">Adicione jogadores ao seu time</p>
+                </div>
+                <button 
+                  onClick={() => {
+                    setIsAddingNewPlayer(!isAddingNewPlayer);
+                    setSelectedPlayerId("");
+                    setNewPlayerName("");
+                  }}
+                  className="bg-blue-600/10 text-blue-500 p-2 rounded-xl hover:bg-blue-600/20 transition"
+                  title={isAddingNewPlayer ? "Selecionar Existente" : "Cadastrar Novo"}
+                >
+                  {isAddingNewPlayer ? <Users className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                </button>
+              </div>
+
+              <div className="space-y-4 mt-6">
+                 {isAddingNewPlayer ? (
+                   <div>
+                      <label className="block text-[10px] font-black text-app-text-muted uppercase tracking-widest mb-1 pl-1">Nome do Novo Jogador</label>
+                      <input
+                        type="text"
+                        className="w-full px-4 py-3 bg-app-bg border border-app-border rounded-xl outline-none text-app-text font-bold"
+                        placeholder="Nome completo"
+                        value={newPlayerName}
+                        onChange={(e) => setNewPlayerName(e.target.value)}
+                        autoFocus
+                      />
+                   </div>
+                 ) : (
+                   <div>
+                      <label className="block text-[10px] font-black text-app-text-muted uppercase tracking-widest mb-1 pl-1">Selecione o Jogador</label>
+                      <select
+                        className="w-full px-4 py-3 bg-app-bg border border-app-border rounded-xl outline-none text-app-text font-bold appearance-none cursor-pointer"
+                        value={selectedPlayerId}
+                        onChange={(e) => setSelectedPlayerId(e.target.value)}
+                      >
+                         <option value="">Selecione...</option>
+                         {allPlayers.map(p => (
+                            <option key={p.id} value={p.id}>{p.nome || p.name}</option>
+                         ))}
+                      </select>
+                   </div>
+                 )}
                  <div className="flex gap-4 pt-4">
-                    <button onClick={() => setSelectedTeamForPlayer(null)} className="flex-1 px-4 py-3 text-app-text-muted font-black uppercase text-[10px] tracking-widest">Cancelar</button>
-                    <button onClick={() => handleAddPlayer(selectedTeamForPlayer)} className="flex-1 bg-blue-600 text-white px-4 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest">Escalar</button>
+                    <button onClick={() => {
+                       setSelectedTeamForPlayer(null);
+                       setIsAddingNewPlayer(false);
+                    }} className="flex-1 px-4 py-3 text-app-text-muted font-black uppercase text-[10px] tracking-widest">Cancelar</button>
+                    <button 
+                      onClick={() => isAddingNewPlayer ? handleCreateAndAddPlayer(selectedTeamForPlayer) : handleAddPlayer(selectedTeamForPlayer)} 
+                      className="flex-1 bg-blue-600 text-white px-4 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest"
+                    >
+                       {isAddingNewPlayer ? "Cadastrar" : "Escalar"}
+                    </button>
                  </div>
               </div>
            </div>
@@ -780,7 +855,7 @@ const ChampionshipDetail = () => {
                           <div className="flex gap-2">
                              <select id="playerA" className="flex-1 bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs font-bold outline-none">
                                 <option value="">Jogador...</option>
-                                {champ.times.find(t => t.id === selectedGame.homeTeam.id)?.jogadores.map(jt => (
+                                {([...(champ.times.find(t => t.id === selectedGame.homeTeam.id)?.jogadores || [])]).sort((a, b) => (a.player.nome || a.player.name || "").localeCompare(b.player.nome || b.player.name || "")).map(jt => (
                                    <option key={jt.id} value={jt.player.id}>{jt.player.nome || jt.player.name}</option>
                                 ))}
                              </select>
@@ -850,7 +925,7 @@ const ChampionshipDetail = () => {
                           <div className="flex gap-2">
                              <select id="playerB" className="flex-1 bg-app-bg border border-app-border rounded-xl px-3 py-2 text-xs font-bold outline-none">
                                 <option value="">Jogador...</option>
-                                {champ.times.find(t => t.id === selectedGame.awayTeam.id)?.jogadores.map(jt => (
+                                {([...(champ.times.find(t => t.id === selectedGame.awayTeam.id)?.jogadores || [])]).sort((a, b) => (a.player.nome || a.player.name || "").localeCompare(b.player.nome || b.player.name || "")).map(jt => (
                                    <option key={jt.id} value={jt.player.id}>{jt.player.nome || jt.player.name}</option>
                                 ))}
                              </select>

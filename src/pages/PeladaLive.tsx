@@ -32,11 +32,12 @@ const PeladaLive = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [pelada, setPelada] = useState<any>(null);
-  const [times, setTimes] = useState<Time[]>([]);
+  const [isChampionship, setIsChampionship] = useState(false);
+  const [times, setTimes] = useState<any[]>([]);
   const [score, setScore] = useState({ casa: 0, visitante: 0 });
   const [seconds, setSeconds] = useState(0);
   const [isActive, setIsActive] = useState(false);
-  const [eventos, setEventos] = useState<Evento[]>([]);
+  const [eventos, setEventos] = useState<any[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const [showSummaryModal, setShowSummaryModal] = useState(false);
@@ -47,7 +48,7 @@ const PeladaLive = () => {
     fetchData();
 
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === "peladas") {
+      if (e.key === "peladas" && !isChampionship) {
         fetchData();
       }
     };
@@ -58,7 +59,7 @@ const PeladaLive = () => {
       window.removeEventListener('storage', handleStorageChange);
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [id]);
+  }, [id, isChampionship]);
 
   useEffect(() => {
     if (isActive) {
@@ -73,17 +74,46 @@ const PeladaLive = () => {
     };
   }, [isActive]);
 
-  const fetchData = () => {
+  const fetchData = async () => {
     if (!id) return;
     try {
-      const found = DataService.getPeladaById(id);
-      if (found) {
-        setPelada(found);
-        setTimes(found.times || []);
-        setScore({ casa: found.placar_casa || 0, visitante: found.placar_visitante || 0 });
-        setSeconds(found.cronometro_segundos || 0);
-        setIsActive(found.cronometro_ativo || false);
-        setEventos(found.eventos || []);
+      // Check if it's a championship match first
+      const isChampMatch = id.startsWith("match-");
+      setIsChampionship(isChampMatch);
+
+      if (isChampMatch) {
+         const champMatchId = id.replace("match-", "");
+         const response = await api.get(`/championships/jogos/${champMatchId}`);
+         const game = response.data;
+         setPelada({
+            ...game,
+            titulo: `${game.homeTeam.name} vs ${game.awayTeam.name}`,
+            local: game.championship?.name || "Campeonato"
+         });
+         setTimes([
+            { id: game.homeTeam.id, nome_time: game.homeTeam.name, jogadores: game.eventos?.filter((e: any) => e.teamId === game.homeTeam.id).map((e: any) => ({ jogador_id: e.playerId, jogador_nome: e.player.name })) || [] },
+            { id: game.awayTeam.id, nome_time: game.awayTeam.name, jogadores: game.eventos?.filter((e: any) => e.teamId === game.awayTeam.id).map((e: any) => ({ jogador_id: e.playerId, jogador_nome: e.player.name })) || [] }
+         ]);
+         // Championship matches don't have a queue/rotating teams like pickup games
+         setScore({ casa: game.homeScore || 0, visitante: game.awayScore || 0 });
+         setSeconds(0); // For now, maybe we can store seconds in DB later
+         setEventos(game.eventos?.map((e: any) => ({
+            id: e.id,
+            tipo: e.type,
+            jogador_id: e.playerId,
+            jogador_nome: e.player.name,
+            minuto: e.minute
+         })) || []);
+      } else {
+         const found = DataService.getPeladaById(id);
+         if (found) {
+           setPelada(found);
+           setTimes(found.times || []);
+           setScore({ casa: found.placar_casa || 0, visitante: found.placar_visitante || 0 });
+           setSeconds(found.cronometro_segundos || 0);
+           setIsActive(found.cronometro_ativo || false);
+           setEventos(found.eventos || []);
+         }
       }
     } catch (error) {
       console.warn("Live fetch error", error);
@@ -103,8 +133,9 @@ const PeladaLive = () => {
     const nextState = !isActive;
     setIsActive(nextState);
     
-    // Save locally
-    DataService.updateMatch(id, { cronometro_ativo: nextState, cronometro_segundos: seconds });
+    if (!isChampionship) {
+      DataService.updateMatch(id, { cronometro_ativo: nextState, cronometro_segundos: seconds });
+    }
   };
 
   const resetTimer = () => {
@@ -112,8 +143,9 @@ const PeladaLive = () => {
     setIsActive(false);
     setSeconds(0);
     
-    // Save locally
-    DataService.updateMatch(id, { cronometro_ativo: false, cronometro_segundos: 0 });
+    if (!isChampionship) {
+      DataService.updateMatch(id, { cronometro_ativo: false, cronometro_segundos: 0 });
+    }
   };
 
   const updateScore = (side: 'casa' | 'visitante', delta: number) => {
@@ -121,8 +153,9 @@ const PeladaLive = () => {
     const newScore = { ...score, [side]: Math.max(0, score[side] + delta) };
     setScore(newScore);
     
-    // Save locally
-    DataService.updateScore(id, newScore.casa, newScore.visitante);
+    if (!isChampionship) {
+      DataService.updateScore(id, newScore.casa, newScore.visitante);
+    }
   };
 
   const handleRodarTimes = async (timeId: string) => {
@@ -166,8 +199,17 @@ const PeladaLive = () => {
 
   const handleRegisterEvent = async (tipo: string, timeId: string, jogadorId: string, assistenciaId?: string) => {
     if (!id) return;
-    const jogadorNome = times.flatMap(t => t.jogadores).find(j => j.jogador_id === jogadorId)?.jogador_nome || "Jogador";
-    const assistenciaNome = assistenciaId ? times.flatMap(t => t.jogadores).find(j => j.jogador_id === assistenciaId)?.jogador_nome : null;
+    let jogadorNome = "Jogador";
+    
+    if (isChampionship) {
+       // We might not have all players in memory, but we need the name
+       // For now, assume we find it in times or events
+       jogadorNome = eventos.find(e => e.jogador_id === jogadorId)?.jogador_nome || "Jogador";
+    } else {
+       jogadorNome = times.flatMap(t => t.jogadores).find(j => j.jogador_id === jogadorId)?.jogador_nome || "Jogador";
+    }
+
+    const assistenciaNome = assistenciaId ? (times.flatMap(t => t.jogadores).find(j => j.jogador_id === assistenciaId)?.jogador_nome) : null;
 
     if (tipo.includes('cartao') && !window.confirm(`Confirmar ${tipo.replace('_', ' ')} para ${jogadorNome}?`)) {
       return;
@@ -182,7 +224,25 @@ const PeladaLive = () => {
       minuto: Math.floor(seconds / 60)
     };
 
-    // 1. Local Update
+    if (isChampionship) {
+       try {
+          const gameId = id.replace("match-", "");
+          await api.post(`/championships/eventos`, {
+             jogoId: gameId,
+             playerId: jogadorId,
+             teamId: timeId,
+             type: tipo === 'gol' ? 'gol' : tipo === 'assistencia' ? 'assistencia' : tipo === 'cartao_amarelo' ? 'cartao_amarelo' : 'cartao_vermelho',
+             minute: Math.floor(seconds / 60)
+          });
+          toast.success("Evento salvo no campeonato!");
+          fetchData(); // Refresh match state
+       } catch (error) {
+          toast.error("Erro ao salvar evento no campeonato.");
+       }
+       return;
+    }
+
+    // Local Update for regular pickup games
     const updated = DataService.registerEvent(id, eventData);
     if (updated) {
        setPelada(updated);
@@ -237,7 +297,16 @@ const PeladaLive = () => {
   return (
     <div className="space-y-6 pb-20 max-w-5xl mx-auto px-4 md:px-0">
       <div className="flex items-center justify-between">
-        <button onClick={() => navigate(`/peladas/${id}`)} className="bg-app-card p-2 rounded-xl text-app-text-muted flex items-center hover:text-green-500 transition font-bold border border-app-border shadow-sm">
+        <button 
+          onClick={() => {
+            if (isChampionship) {
+              navigate(-1);
+            } else {
+              navigate(`/peladas/${id}`);
+            }
+          }} 
+          className="bg-app-card p-2 rounded-xl text-app-text-muted flex items-center hover:text-green-500 transition font-bold border border-app-border shadow-sm"
+        >
           <ChevronLeft className="w-5 h-5 mr-1" /> Voltar
         </button>
         <div className="flex items-center gap-3">
@@ -410,7 +479,7 @@ const PeladaLive = () => {
                 )}
               </div>
               <div className="grid grid-cols-1 gap-2">
-                {time.jogadores.map((jog, jIdx) => (
+                {[...time.jogadores].sort((a,b)=>(a.jogador_nome||"").localeCompare(b.jogador_nome||"")).map((jog, jIdx) => (
                   <div key={jog.id || jog.jogador_id || `jog-${jIdx}`} className="flex justify-between items-center p-4 hover:bg-white dark:hover:bg-zinc-900 rounded-2xl group transition-all border border-transparent hover:border-app-border hover:shadow-md">
                     <div className="flex items-center">
                       <div className="w-10 h-10 rounded-xl bg-app-bg border border-app-border flex items-center justify-center text-app-text font-black text-xs mr-4 shadow-inner group-hover:scale-110 transition-transform relative">
@@ -525,7 +594,7 @@ const PeladaLive = () => {
                   </div>
                 </div>
                 <div className="grid grid-cols-1 gap-2 border-t border-app-border/40 pt-4">
-                  {time.jogadores.map((j, jIdx) => (
+                  {[...time.jogadores].sort((a,b)=>(a.jogador_nome||"").localeCompare(b.jogador_nome||"")).map((j, jIdx) => (
                     <div key={j.id || j.jogador_id || `next-jog-${jIdx}`} className="text-xs text-app-text-muted flex justify-between font-bold">
                       <span className="group-hover:text-app-text transition-colors">{j.jogador_nome}</span>
                       <span className="text-zinc-400 dark:text-zinc-600 font-mono text-[9px] uppercase">{j.jogador_id.slice(-4)}</span>
@@ -600,7 +669,7 @@ const PeladaLive = () => {
                 <div key={time.id || `modal-nt-${ntIdx}`} className="space-y-2">
                   <div className="text-[10px] font-black text-app-text-muted uppercase tracking-widest pl-1">{time.nome_time}</div>
                   <div className="grid grid-cols-1 gap-2">
-                    {time.jogadores.map((jog, mjIdx) => (
+                    {[...time.jogadores].sort((a, b) => (a.jogador_nome || "").localeCompare(b.jogador_nome || "")).map((jog, mjIdx) => (
                       <button 
                         key={jog.id || jog.jogador_id || `modal-jog-${mjIdx}`}
                         onClick={() => selectedSaiId && handleSubstituir(selectedSaiId, jog.jogador_id)}
@@ -634,7 +703,7 @@ const PeladaLive = () => {
                 <div className="space-y-4">
                   <div className="text-[10px] font-black text-app-text-muted uppercase tracking-[0.2em] mb-2 px-2">Quem marcou o gol?</div>
                   <div className="grid grid-cols-1 gap-2 overflow-y-auto max-h-60 pr-2">
-                    {times.find(t => t.id === selectedTimeId)?.jogadores.map((j, gIdx) => (
+                    {([...(times.find(t => t.id === selectedTimeId)?.jogadores || [])]).sort((a, b) => (a.jogador_nome || "").localeCompare(b.jogador_nome || "")).map((j, gIdx) => (
                       <button 
                         key={j.id || j.jogador_id || `goal-select-${gIdx}`}
                         onClick={() => setGoalPlayerId(j.jogador_id)}
@@ -674,7 +743,7 @@ const PeladaLive = () => {
                         <Plus className="w-4 h-4 opacity-0 group-hover:opacity-100 text-green-500" />
                       </button>
                       <div className="pt-2 text-[10px] text-zinc-400 uppercase tracking-widest font-black opacity-50 px-2">Garçons do {times.find(t => t.id === selectedTimeId)?.nome_time}:</div>
-                      {times.find(t => t.id === selectedTimeId)?.jogadores.filter(j => j.jogador_id !== goalPlayerId).map((j, gIdx) => (
+                      {([...(times.find(t => t.id === selectedTimeId)?.jogadores || [])]).filter(j => j.jogador_id !== goalPlayerId).sort((a, b) => (a.jogador_nome || "").localeCompare(b.jogador_nome || "")).map((j, gIdx) => (
                         <button 
                           key={j.id || j.jogador_id || `goal-jog-${gIdx}`}
                           onClick={() => selectedTimeId && goalPlayerId && handleRegisterEvent('gol', selectedTimeId, goalPlayerId, j.jogador_id)}
@@ -713,7 +782,7 @@ const PeladaLive = () => {
                 <div className="space-y-4">
                   <div className="text-[10px] font-black text-app-text-muted uppercase tracking-[0.2em] mb-2 px-2 text-center">Para quem é o cartão?</div>
                   <div className="grid grid-cols-1 gap-2 overflow-y-auto max-h-60 pr-2">
-                    {times.find(t => t.id === selectedTimeId)?.jogadores.map((j, gIdx) => (
+                    {([...(times.find(t => t.id === selectedTimeId)?.jogadores || [])]).sort((a, b) => (a.jogador_nome || "").localeCompare(b.jogador_nome || "")).map((j, gIdx) => (
                       <button 
                         key={j.id || j.jogador_id || `card-select-${gIdx}`}
                         onClick={() => setCardPlayerId(j.jogador_id)}
@@ -855,8 +924,20 @@ const PeladaLive = () => {
                   </button>
                   <button 
                     onClick={async () => {
-                      if (window.confirm("Finalizar pelada? Isso irá salvar as estatísticas e você não poderá mais editar este jogo.")) {
+                      if (window.confirm("Finalizar partida? Isso irá salvar o resultado final.")) {
                         try {
+                          if (isChampionship) {
+                             const gameId = id.replace("match-", "");
+                             await api.post(`/championships/jogos/${gameId}/resultado`, {
+                                homeScore: score.casa,
+                                awayScore: score.visitante,
+                                status: 'finalizado'
+                             });
+                             toast.success("Resultado do campeonato registrado!");
+                             navigate(-1);
+                             return;
+                          }
+
                           // 1. Try server first
                           const token = localStorage.getItem("organizer_token");
                           if (token && !token.startsWith("local-token-")) {
@@ -870,11 +951,7 @@ const PeladaLive = () => {
                           navigate(`/peladas/${id}`);
                         } catch (error) {
                           console.error(error);
-                          toast.error("Erro ao finalizar pelada no servidor, mas dados locais foram atualizados.");
-                          
-                          // Fallback local update if server failed
-                          DataService.finalizePelada(id!);
-                          navigate(`/peladas/${id}`);
+                          toast.error("Erro ao finalizar partida.");
                         }
                       }
                     }}
