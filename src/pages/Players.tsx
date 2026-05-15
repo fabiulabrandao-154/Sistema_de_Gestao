@@ -250,8 +250,8 @@ const Players = () => {
                     max="5.0" 
                     step="0.5" 
                     className="flex-1 accent-green-600"
-                    value={nivel} 
-                    onChange={(e) => setNivel(parseFloat(e.target.value))} 
+                    value={nivel ?? 3.0} 
+                    onChange={(e) => setNivel(parseFloat(e.target.value) || 0.5)} 
                   />
                   <div className="bg-green-500/10 text-green-500 font-bold px-3 py-1 rounded-lg border border-green-500/20">
                     {nivel.toFixed(1)} ★

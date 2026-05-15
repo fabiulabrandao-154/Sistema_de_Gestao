@@ -281,8 +281,12 @@ const PeladaDetail = () => {
                 <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
                 <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">Partida em Andamento</span>
               </div>
-              <div className="text-4xl font-black text-white font-mono tracking-tighter">
-                {pelada.placar_casa || 0} <span className="text-zinc-700 mx-2">VS</span> {pelada.placar_visitante || 0}
+              <div className="text-4xl font-black text-white font-mono tracking-tighter flex items-center gap-4">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: pelada.coletes?.[0] || "#ef4444" }}></div>
+                {pelada.placar_casa || 0} 
+                <span className="text-zinc-700 mx-2 text-xl italic uppercase font-sans">VS</span> 
+                {pelada.placar_visitante || 0}
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: pelada.coletes?.[1] || "#3b82f6" }}></div>
               </div>
             </div>
             

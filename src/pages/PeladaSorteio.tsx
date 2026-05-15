@@ -174,10 +174,10 @@ const PeladaSorteio = () => {
             <div key={time.id} className="flex flex-col space-y-3">
               <div className="flex justify-between items-center px-1">
                 <h3 className="font-bold text-app-text flex items-center uppercase tracking-tighter">
-                  <span className={cn(
-                    "w-3 h-3 rounded-full mr-2 shadow-sm",
-                    idx === 0 ? "bg-red-500 shadow-red-500/50" : idx === 1 ? "bg-blue-500 shadow-blue-500/50" : "bg-zinc-700"
-                  )}></span>
+                  <span 
+                    className="w-3 h-3 rounded-full mr-2 shadow-sm"
+                    style={{ backgroundColor: pelada?.coletes?.[idx] || (idx === 0 ? "#ef4444" : idx === 1 ? "#3b82f6" : "#3f3f46") }}
+                  ></span>
                   {time.nome_time}
                   {idx >= 2 && <span className="ml-2 text-[10px] bg-zinc-100 dark:bg-zinc-800 text-app-text-muted px-1.5 py-0.5 rounded font-black uppercase tracking-widest border border-app-border">Próxima</span>}
                 </h3>

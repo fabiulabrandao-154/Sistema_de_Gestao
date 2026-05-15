@@ -200,7 +200,7 @@ const Peladas = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-app-text-muted mb-1">Jogadores por Time</label>
-                  <select className="w-full px-3 py-2 border border-app-border bg-app-bg rounded-lg text-app-text focus:ring-2 focus:ring-green-500" value={jogadoresPorTime} onChange={(e) => setJogadoresPorTime(parseInt(e.target.value))}>
+                  <select className="w-full px-3 py-2 border border-app-border bg-app-bg rounded-lg text-app-text focus:ring-2 focus:ring-green-500" value={jogadoresPorTime} onChange={(e) => setJogadoresPorTime(parseInt(e.target.value) || 5)}>
                     <option value={5}>5 x 5</option>
                     <option value={6}>6 x 6</option>
                     <option value={7}>7 x 7</option>
@@ -209,7 +209,7 @@ const Peladas = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-app-text-muted mb-1">Times Simultâneos</label>
-                  <select className="w-full px-3 py-2 border border-app-border bg-app-bg rounded-lg text-app-text focus:ring-2 focus:ring-green-500" value={timesSimultaneos} onChange={(e) => setTimesSimultaneos(parseInt(e.target.value))}>
+                  <select className="w-full px-3 py-2 border border-app-border bg-app-bg rounded-lg text-app-text focus:ring-2 focus:ring-green-500" value={timesSimultaneos} onChange={(e) => setTimesSimultaneos(parseInt(e.target.value) || 2)}>
                     <option value={2}>2 times</option>
                     <option value={3}>3 times</option>
                     <option value={4}>4 times</option>
@@ -219,7 +219,7 @@ const Peladas = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-app-text-muted mb-1">Duração (m)</label>
-                  <input type="number" className="w-full px-3 py-2 border border-app-border bg-app-bg rounded-lg text-app-text focus:ring-2 focus:ring-green-500" value={duracaoMinutos} onChange={(e) => setDuracaoMinutos(parseInt(e.target.value))} />
+                  <input type="number" className="w-full px-3 py-2 border border-app-border bg-app-bg rounded-lg text-app-text focus:ring-2 focus:ring-green-500" value={duracaoMinutos} onChange={(e) => setDuracaoMinutos(parseInt(e.target.value) || 10)} />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-app-text-muted mb-1">Valor p/ Jogador (R$)</label>

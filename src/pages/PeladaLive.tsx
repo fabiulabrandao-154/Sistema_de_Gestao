@@ -274,8 +274,8 @@ const PeladaLive = () => {
       <div className="bg-app-card rounded-[2.5rem] border border-app-border overflow-hidden shadow-2xl">
         {/* Scoreboard - Sprint 7: Grande Placar e Cronômetro */}
         <div className="bg-zinc-950 text-white p-8 md:p-12 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-green-500/10 rounded-full blur-[100px] -mr-48 -mt-48"></div>
-          <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-500/10 rounded-full blur-[100px] -ml-48 -mb-48"></div>
+          <div className="absolute top-0 right-0 w-96 h-96 rounded-full blur-[100px] -mr-48 -mt-48 opacity-20" style={{ backgroundColor: pelada?.coletes?.[0] || "#ef4444" }}></div>
+          <div className="absolute bottom-0 left-0 w-96 h-96 rounded-full blur-[100px] -ml-48 -mb-48 opacity-20" style={{ backgroundColor: pelada?.coletes?.[1] || "#3b82f6" }}></div>
           
           <div className="text-center mb-10 relative z-10">
             <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-2 rounded-2xl mb-4">
@@ -322,10 +322,12 @@ const PeladaLive = () => {
               <React.Fragment key={time.id || `active-${idx}`}>
                 <div className="flex-1 w-full md:w-auto">
                   <div className="flex flex-col items-center">
-                    <div className={cn(
-                      "text-[10px] font-black text-white uppercase tracking-widest mb-4 px-4 py-1.5 rounded-full border shadow-lg",
-                      idx === 0 ? "bg-red-600 border-red-400" : "bg-blue-600 border-blue-400"
-                    )}>
+                    <div 
+                      className={cn(
+                        "text-[10px] font-black text-white uppercase tracking-widest mb-4 px-4 py-1.5 rounded-full border shadow-lg"
+                      )}
+                      style={{ backgroundColor: pelada?.coletes?.[idx] || (idx === 0 ? "#ef4444" : "#3b82f6"), borderColor: 'rgba(255,255,255,0.2)' }}
+                    >
                       {time.nome_time || `Time ${idx + 1}`}
                     </div>
                     <div className="text-9xl font-black font-mono text-white tracking-tighter leading-none select-none drop-shadow-2xl">
@@ -390,7 +392,10 @@ const PeladaLive = () => {
             <div key={time.id || `court-${tIdx}`} className="p-8 space-y-6">
               <div className="flex justify-between items-center border-b border-app-border pb-6">
                 <div className="flex items-center gap-3">
-                   <div className={cn("w-4 h-4 rounded-full shadow-[0_0_10px_rgba(0,0,0,0.2)]", tIdx === 0 ? "bg-red-500" : "bg-blue-500")}></div>
+                   <div 
+                    className="w-4 h-4 rounded-full shadow-[0_0_10px_rgba(0,0,0,0.2)]"
+                    style={{ backgroundColor: pelada?.coletes?.[tIdx] || (tIdx === 0 ? "#ef4444" : "#3b82f6") }}
+                   ></div>
                    <h3 className="font-extrabold text-app-text uppercase tracking-tighter text-base">
                     {time.nome_time}
                   </h3>
@@ -765,12 +770,22 @@ const PeladaLive = () => {
                    <div className="text-zinc-500 font-black uppercase tracking-[0.4em] text-[10px] mb-4">Resultado Final</div>
                    <div className="flex items-center justify-center gap-12">
                       <div className="text-center">
-                         <div className="text-[10px] font-black text-white px-3 py-1 bg-red-600 rounded-full mb-3 uppercase tracking-widest">{activeTimes[0]?.nome_time}</div>
+                         <div 
+                          className="text-[10px] font-black text-white px-3 py-1 rounded-full mb-3 uppercase tracking-widest"
+                          style={{ backgroundColor: pelada?.coletes?.[0] || "#ef4444" }}
+                         >
+                           {activeTimes[0]?.nome_time}
+                         </div>
                          <div className="text-7xl font-black text-white font-mono">{score.casa}</div>
                       </div>
                       <div className="text-4xl font-black text-zinc-900 border-x border-zinc-900 px-8 py-2 italic transform -rotate-12">VS</div>
                       <div className="text-center">
-                         <div className="text-[10px] font-black text-white px-3 py-1 bg-blue-600 rounded-full mb-3 uppercase tracking-widest">{activeTimes[1]?.nome_time}</div>
+                         <div 
+                          className="text-[10px] font-black text-white px-3 py-1 rounded-full mb-3 uppercase tracking-widest"
+                          style={{ backgroundColor: pelada?.coletes?.[1] || "#3b82f6" }}
+                         >
+                           {activeTimes[1]?.nome_time}
+                         </div>
                          <div className="text-7xl font-black text-white font-mono">{score.visitante}</div>
                       </div>
                    </div>

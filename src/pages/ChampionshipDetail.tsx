@@ -660,7 +660,7 @@ const ChampionshipDetail = () => {
                        <input 
                          type="number" 
                          className="w-20 h-24 bg-white dark:bg-app-card border-2 border-app-border rounded-3xl text-center text-5xl font-black text-app-text focus:border-blue-500 outline-none transition-all"
-                         value={homeGoals}
+                         value={homeGoals ?? 0}
                          onChange={(e) => setHomeGoals(parseInt(e.target.value) || 0)}
                        />
                     </div>
@@ -670,7 +670,7 @@ const ChampionshipDetail = () => {
                        <input 
                          type="number" 
                          className="w-20 h-24 bg-white dark:bg-app-card border-2 border-app-border rounded-3xl text-center text-5xl font-black text-app-text focus:border-blue-500 outline-none transition-all"
-                         value={awayGoals}
+                         value={awayGoals ?? 0}
                          onChange={(e) => setAwayGoals(parseInt(e.target.value) || 0)}
                        />
                     </div>
