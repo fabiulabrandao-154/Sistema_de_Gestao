@@ -99,7 +99,8 @@ const Peladas = () => {
     switch (status) {
       case 'agendada': return <span className="bg-blue-600/20 text-blue-400 px-2 py-0.5 rounded text-xs font-medium border border-blue-500/20">Agendada</span>;
       case 'em_andamento': return <span className="bg-green-600/20 text-green-400 px-2 py-0.5 rounded text-xs font-medium border border-green-500/20">Em Andamento</span>;
-      case 'encerrada': return <span className="bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded text-xs font-medium border border-zinc-700">Encerrada</span>;
+      case 'encerrada':
+      case 'finalizada': return <span className="bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded text-xs font-medium border border-zinc-700">Finalizada</span>;
       default: return null;
     }
   };

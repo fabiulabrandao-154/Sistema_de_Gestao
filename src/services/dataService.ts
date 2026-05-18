@@ -213,7 +213,10 @@ const DataService = {
   },
   updatePelada: (id: string, updates: Partial<Pelada>) => updateLocalData("peladas", id, updates) as Pelada,
   deletePelada: (id: string) => {
+    if (!id) return;
     deleteLocalData("peladas", id);
+    // Also remove from any other related keys if necessary, 
+    // though peladas are usually standalone in localData.
   },
 
   // Management inside Pelada
@@ -453,8 +456,12 @@ const DataService = {
   },
 
   finalizePelada: (peladaId: string) => {
+    if (!peladaId) return null;
     const pelada = getItemById("peladas", peladaId) as Pelada | undefined;
-    if (!pelada) return null;
+    if (!pelada) {
+      console.error(`Pelada with ID ${peladaId} not found for finalization.`);
+      return null;
+    }
 
     // 1. Record Match Results (Wins/Losses)
     if (pelada.times && pelada.times.length >= 2) {
@@ -483,13 +490,13 @@ const DataService = {
 
     // 2. Process Events (Goals, Assists, Cards)
     const events = pelada.eventos || [];
+    const inscritos = pelada.inscritos || [];
+    
     events.forEach(e => {
       if (e.tipo === 'gol') {
         DataService.updatePlayerStats(e.jogador_id, { goals: 1 });
-        if (e.assistencia_nome) {
-          // Find player id by name for assistance (a bit tricky in local storage if not passed)
-          // For now, let's assume we find it or skip if not found
-          const assistant = pelada.inscritos.find(i => i.jogador_nome === e.assistencia_nome);
+        if (e.assistencia_nome && inscritos.length > 0) {
+          const assistant = inscritos.find(i => i.jogador_nome === e.assistencia_nome);
           if (assistant) {
             DataService.updatePlayerStats(assistant.jogador, { assists: 1 });
           }
@@ -501,7 +508,7 @@ const DataService = {
       }
     });
 
-    return updateLocalData("peladas", peladaId, { status: "finalizada" }) as Pelada;
+    return updateLocalData("peladas", peladaId, { status: "finalizada", cronometro_ativo: false }) as Pelada;
   }
 };
 

@@ -495,7 +495,10 @@ const PeladaLive = () => {
                         </div>
                       </div>
                       <div className="flex flex-col">
-                        <div className="font-black text-app-text-muted group-hover:text-app-text transition-colors uppercase tracking-tight text-sm flex items-center gap-2">
+                        <div 
+                          onClick={() => navigate(`/players/${jog.id || jog.jogador_id}`)}
+                          className="font-black text-app-text-muted group-hover:text-app-text transition-colors uppercase tracking-tight text-sm flex items-center gap-2 cursor-pointer hover:underline"
+                        >
                           {jog.jogador_nome}
                           {eventos.filter(e => e.jogador_id === jog.jogador_id && e.tipo === 'gol').length > 0 && (
                             <span className="text-[10px] flex items-center gap-0.5 text-green-500">
@@ -596,7 +599,12 @@ const PeladaLive = () => {
                 <div className="grid grid-cols-1 gap-2 border-t border-app-border/40 pt-4">
                   {[...time.jogadores].sort((a,b)=>(a.jogador_nome||"").localeCompare(b.jogador_nome||"")).map((j, jIdx) => (
                     <div key={j.id || j.jogador_id || `next-jog-${jIdx}`} className="text-xs text-app-text-muted flex justify-between font-bold">
-                      <span className="group-hover:text-app-text transition-colors">{j.jogador_nome}</span>
+                      <span 
+                        onClick={() => navigate(`/players/${j.jogador_id}`)}
+                        className="group-hover:text-app-text transition-colors cursor-pointer hover:underline"
+                      >
+                        {j.jogador_nome}
+                      </span>
                       <span className="text-zinc-400 dark:text-zinc-600 font-mono text-[9px] uppercase">{j.jogador_id.slice(-4)}</span>
                     </div>
                   ))}
@@ -626,7 +634,10 @@ const PeladaLive = () => {
                   </div>
                   <div className="flex-1">
                     <div className="text-sm font-bold text-app-text-muted flex items-center gap-3">
-                      <span className="text-app-text group-hover:text-green-500 underline decoration-2 decoration-transparent group-hover:decoration-green-500 transition-all">
+                      <span 
+                        onClick={() => navigate(`/players/${ev.jogador_id}`)}
+                        className="text-app-text group-hover:text-green-500 underline decoration-2 decoration-transparent group-hover:decoration-green-500 transition-all cursor-pointer"
+                      >
                         {ev.jogador_nome}
                       </span>
                       <div className="h-1 w-1 rounded-full bg-app-border"></div>
@@ -880,7 +891,12 @@ const PeladaLive = () => {
                             <div key={art.id || `art-${i}`} className="flex justify-between items-center bg-app-bg p-3 rounded-2xl border border-app-border shadow-sm">
                                <div className="flex items-center gap-3">
                                   <span className="text-[10px] font-black text-zinc-400 font-mono italic">#{i+1}</span>
-                                  <span className="font-black text-app-text uppercase tracking-tight text-xs">{art.nome}</span>
+                                  <span 
+                                     onClick={() => navigate(`/players/${art.id}`)}
+                                     className="font-black text-app-text uppercase tracking-tight text-xs cursor-pointer hover:text-green-500"
+                                  >
+                                     {art.nome}
+                                  </span>
                                </div>
                                <span className="bg-green-500/10 text-green-500 px-3 py-1 rounded-full text-[10px] font-black">{art.gols} GOLS</span>
                             </div>
@@ -905,7 +921,15 @@ const PeladaLive = () => {
                             <div key={gar.nome || `gar-${i}`} className="flex justify-between items-center bg-app-bg p-3 rounded-2xl border border-app-border shadow-sm">
                                <div className="flex items-center gap-3">
                                   <span className="text-[10px] font-black text-zinc-400 font-mono italic">#{i+1}</span>
-                                  <span className="font-black text-app-text uppercase tracking-tight text-xs">{gar.nome}</span>
+                                  <span 
+                                     onClick={() => {
+                                        const pId = eventos.find(e => e.assistencia_nome === gar.nome)?.assistencia_id;
+                                        if (pId) navigate(`/players/${pId}`);
+                                     }}
+                                     className="font-black text-app-text uppercase tracking-tight text-xs cursor-pointer hover:text-blue-500"
+                                  >
+                                     {gar.nome}
+                                  </span>
                                </div>
                                <span className="bg-blue-500/10 text-blue-500 px-3 py-1 rounded-full text-[10px] font-black">{gar.assis} PASSES</span>
                             </div>
@@ -938,20 +962,27 @@ const PeladaLive = () => {
                              return;
                           }
 
-                          // 1. Try server first
-                          const token = localStorage.getItem("organizer_token");
-                          if (token && !token.startsWith("local-token-")) {
-                            await api.post(`/peladas/${id}/finalizar`);
+                          // 1. Try server first - but catch errors to allow local fallback
+                          try {
+                            const token = localStorage.getItem("organizer_token");
+                            if (token && !token.startsWith("local-token-")) {
+                              await api.post(`/peladas/${id}/finalizar`);
+                            }
+                          } catch (apiError) {
+                            console.warn("API finalization failed, falling back to local only", apiError);
                           }
                           
                           // 2. Always update local for sync/fallback
-                          DataService.finalizePelada(id!);
-                          
-                          toast.success("Pelada finalizada com sucesso!");
-                          navigate(`/peladas/${id}`);
+                          const result = DataService.finalizePelada(id!);
+                          if (result) {
+                            toast.success("Pelada finalizada com sucesso!");
+                            navigate(`/peladas/${id}`);
+                          } else {
+                            toast.error("Erro ao finalizar pelada localmente.");
+                          }
                         } catch (error) {
                           console.error(error);
-                          toast.error("Erro ao finalizar partida.");
+                          toast.error("Erro inesperado ao finalizar partida.");
                         }
                       }
                     }}

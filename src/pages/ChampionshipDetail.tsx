@@ -558,7 +558,12 @@ const ChampionshipDetail = () => {
                         <div className="divide-y divide-app-border border border-app-border rounded-2xl bg-app-card overflow-hidden">
                            {[...team.jogadores].sort((a, b) => (a.player.nome || a.player.name || "").localeCompare(b.player.nome || b.player.name || "")).map(jt => (
                               <div key={jt.id} className="flex justify-between items-center p-3 hover:bg-app-bg/20 group">
-                                 <span className="text-sm font-bold text-app-text">{jt.player.nome || jt.player.name}</span>
+                                 <span 
+                                    onClick={() => navigate(`/players/${jt.player.id}`)}
+                                    className="text-sm font-bold text-app-text cursor-pointer hover:text-blue-500 transition-colors"
+                                 >
+                                    {jt.player.nome || jt.player.name}
+                                 </span>
                                  <button onClick={() => handleRemovePlayer(jt.id)} className="text-zinc-600 dark:text-zinc-400 p-1 hover:text-red-500 transition">
                                     <X className="w-3.5 h-3.5" />
                                  </button>
@@ -595,7 +600,12 @@ const ChampionshipDetail = () => {
                                 {idx + 1}º
                              </div>
                              <div className="flex-1 min-w-0">
-                                <div className="text-sm font-black text-app-text uppercase tracking-tight truncate">{scorer.nome}</div>
+                                <div 
+                                   onClick={() => navigate(`/players/${scorer.id}`)}
+                                   className="text-sm font-black text-app-text uppercase tracking-tight truncate cursor-pointer hover:text-amber-500"
+                                >
+                                   {scorer.nome}
+                                </div>
                                 <div className="text-[10px] font-black text-app-text-muted uppercase tracking-widest">{scorer.time}</div>
                              </div>
                              <div className="text-xl font-black text-amber-500">{scorer.gols}</div>
@@ -619,7 +629,12 @@ const ChampionshipDetail = () => {
                                 {idx + 1}º
                              </div>
                              <div className="flex-1 min-w-0">
-                                <div className="text-sm font-black text-app-text uppercase tracking-tight truncate">{assist.nome}</div>
+                                <div 
+                                   onClick={() => navigate(`/players/${assist.id}`)}
+                                   className="text-sm font-black text-app-text uppercase tracking-tight truncate cursor-pointer hover:text-blue-500"
+                                >
+                                   {assist.nome}
+                                </div>
                                 <div className="text-[10px] font-black text-app-text-muted uppercase tracking-widest">{assist.time}</div>
                              </div>
                              <div className="text-xl font-black text-blue-500">{assist.assistencias}</div>
@@ -661,7 +676,12 @@ const ChampionshipDetail = () => {
                     <tbody className="divide-y divide-app-border">
                        {cards.map((c) => (
                           <tr key={c.id} className="hover:bg-app-bg/30 transition-colors">
-                             <td className="px-6 py-5 font-black text-app-text uppercase tracking-tight">{c.nome}</td>
+                             <td 
+                                onClick={() => navigate(`/players/${c.id}`)}
+                                className="px-6 py-5 font-black text-app-text uppercase tracking-tight cursor-pointer hover:text-blue-500"
+                             >
+                                {c.nome}
+                             </td>
                              <td className="px-6 py-5 font-bold text-app-text-muted uppercase text-xs">{c.time}</td>
                              <td className="px-6 py-5 text-center">
                                 <span className="bg-amber-400 w-6 h-8 inline-block rounded shadow-sm text-black flex items-center justify-center font-black text-xs mx-auto">

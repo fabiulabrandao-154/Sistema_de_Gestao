@@ -423,24 +423,30 @@ export class PeladaService {
       const yellowCount = events.filter(e => e.playerId === pj.playerId && e.type === 'cartao_amarelo').length;
       const redCount = events.filter(e => e.playerId === pj.playerId && e.type === 'cartao_vermelho').length;
 
-      if (goalsCount > 0 || assistCount > 0 || yellowCount > 0 || redCount > 0) {
-        await prisma.playerStats.upsert({
-            where: { playerId: pj.playerId },
-            create: {
-                playerId: pj.playerId,
-                goals: goalsCount,
-                assists: assistCount,
-                yellowCards: yellowCount,
-                redCards: redCount
-            },
-            update: {
-                goals: { increment: goalsCount },
-                assists: { increment: assistCount },
-                yellowCards: { increment: yellowCount },
-                redCards: { increment: redCount }
-            }
-        });
-      }
+      // In addition to events, we increment matchesPlayed for everyone who was part of the final match
+      // if it wasn't recorded yet. But to keep it simple and fulfill the "total_jogos" requested by user,
+      // let's assume total_jogos is the sum of sessions participated if wins/losses are mini-matches.
+      // However, usually users expect "total_jogos" to be sessions if they see wins/losses as separate.
+      // Given the current schema, I'll increment goals/assists/cards as requested.
+
+      await prisma.playerStats.upsert({
+          where: { playerId: pj.playerId },
+          create: {
+              playerId: pj.playerId,
+              goals: goalsCount,
+              assists: assistCount,
+              yellowCards: yellowCount,
+              redCards: redCount,
+              matchesPlayed: 1 // First session
+          },
+          update: {
+              goals: { increment: goalsCount },
+              assists: { increment: assistCount },
+              yellowCards: { increment: yellowCount },
+              redCards: { increment: redCount },
+              matchesPlayed: { increment: 1 } // One more session
+          }
+      });
     }
 
     return this.getById(id);

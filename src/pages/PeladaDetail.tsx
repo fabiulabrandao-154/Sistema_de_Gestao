@@ -141,10 +141,21 @@ const PeladaDetail = () => {
     if (!id) return;
     if (window.confirm("ATENÇÃO: Isso excluirá permanentemente esta pelada e todos os seus dados (times, gols, etc). Deseja continuar?")) {
       try {
+        // Try API first
+        try {
+          const token = localStorage.getItem("organizer_token");
+          if (token && !token.startsWith("local-token-")) {
+            await api.delete(`/peladas/${id}`);
+          }
+        } catch (apiError) {
+          console.warn("API deletion failed, falling back to local", apiError);
+        }
+
         DataService.deletePelada(id);
         toast.success("Pelada excluída com sucesso.");
         navigate("/peladas");
       } catch (error) {
+        console.error("Delete error:", error);
         toast.error("Erro ao excluir pelada.");
       }
     }
@@ -654,14 +665,29 @@ const PeladaDetail = () => {
                      </button>
                      {pelada.status !== 'encerrada' && pelada.status !== 'finalizada' && (
                        <button 
-                         onClick={() => {
+                         onClick={async () => {
                            if (window.confirm("Confirmar encerramento? Estatísticas serão salvas.")) {
                              try {
-                               DataService.finalizePelada(id!);
-                               toast.success("Pelada finalizada com sucesso!");
-                               fetchData();
+                               // Try API first but catch errors for local fallback
+                               try {
+                                 const token = localStorage.getItem("organizer_token");
+                                 if (token && !token.startsWith("local-token-")) {
+                                   await api.post(`/peladas/${id}/finalizar`);
+                                 }
+                               } catch (apiError) {
+                                 console.warn("API finalization failed, falling back to local only", apiError);
+                               }
+
+                               const result = DataService.finalizePelada(id!);
+                               if (result) {
+                                 toast.success("Pelada finalizada com sucesso!");
+                                 fetchData();
+                               } else {
+                                 toast.error("Erro ao finalizar pelada localmente.");
+                               }
                              } catch (error) {
-                               toast.error("Erro ao finalizar pelada.");
+                               console.error("Finalize error:", error);
+                               toast.error("Erro inesperado ao finalizar pelada.");
                              }
                            }
                          }}
