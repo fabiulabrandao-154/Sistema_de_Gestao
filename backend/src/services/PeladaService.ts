@@ -414,39 +414,68 @@ export class PeladaService {
       data: { status: 'finalizada' }
     });
 
+    const times = await prisma.timePelada.findMany({ where: { peladaId: id } });
+    if (times.length >= 2) {
+      const homeTeam = times[0];
+      const awayTeam = times[1];
+      const scoreCasa = pelada.placarCasa || 0;
+      const scoreVisitante = pelada.placarVisitante || 0;
+
+      const homePlayers = homeTeam.players ? homeTeam.players.split(',') : [];
+      const awayPlayers = awayTeam.players ? awayTeam.players.split(',') : [];
+
+      const recordResult = async (pid: string, result: 'win' | 'draw' | 'loss') => {
+          await prisma.playerStats.upsert({
+              where: { playerId: pid },
+              create: {
+                  playerId: pid,
+                  wins: result === 'win' ? 1 : 0,
+                  draws: result === 'draw' ? 1 : 0,
+                  losses: result === 'loss' ? 1 : 0,
+                  matchesPlayed: 1
+              },
+              update: {
+                  wins: { increment: result === 'win' ? 1 : 0 },
+                  draws: { increment: result === 'draw' ? 1 : 0 },
+                  losses: { increment: result === 'loss' ? 1 : 0 },
+                  matchesPlayed: { increment: 1 }
+              }
+          });
+      };
+
+      if (scoreCasa > scoreVisitante) {
+        for (const pid of homePlayers) await recordResult(pid, 'win');
+        for (const pid of awayPlayers) await recordResult(pid, 'loss');
+      } else if (scoreVisitante > scoreCasa) {
+        for (const pid of homePlayers) await recordResult(pid, 'loss');
+        for (const pid of awayPlayers) await recordResult(pid, 'win');
+      } else {
+        for (const pid of homePlayers) await recordResult(pid, 'draw');
+        for (const pid of awayPlayers) await recordResult(pid, 'draw');
+      }
+    }
+
     const events = await prisma.event.findMany({ where: { peladaId: id } });
     const inscritos = await prisma.peladaJogador.findMany({ where: { peladaId: id } });
 
+    // Process events separately to increment specific goals/assists/cols
     for (const pj of inscritos) {
       const goalsCount = events.filter(e => e.playerId === pj.playerId && e.type === 'gol').length;
       const assistCount = events.filter(e => e.assistPlayerId === pj.playerId).length;
       const yellowCount = events.filter(e => e.playerId === pj.playerId && e.type === 'cartao_amarelo').length;
       const redCount = events.filter(e => e.playerId === pj.playerId && e.type === 'cartao_vermelho').length;
 
-      // In addition to events, we increment matchesPlayed for everyone who was part of the final match
-      // if it wasn't recorded yet. But to keep it simple and fulfill the "total_jogos" requested by user,
-      // let's assume total_jogos is the sum of sessions participated if wins/losses are mini-matches.
-      // However, usually users expect "total_jogos" to be sessions if they see wins/losses as separate.
-      // Given the current schema, I'll increment goals/assists/cards as requested.
-
-      await prisma.playerStats.upsert({
-          where: { playerId: pj.playerId },
-          create: {
-              playerId: pj.playerId,
-              goals: goalsCount,
-              assists: assistCount,
-              yellowCards: yellowCount,
-              redCards: redCount,
-              matchesPlayed: 1 // First session
-          },
-          update: {
-              goals: { increment: goalsCount },
-              assists: { increment: assistCount },
-              yellowCards: { increment: yellowCount },
-              redCards: { increment: redCount },
-              matchesPlayed: { increment: 1 } // One more session
-          }
-      });
+      if (goalsCount > 0 || assistCount > 0 || yellowCount > 0 || redCount > 0) {
+        await prisma.playerStats.update({
+            where: { playerId: pj.playerId },
+            data: {
+                goals: { increment: goalsCount },
+                assists: { increment: assistCount },
+                yellowCards: { increment: yellowCount },
+                redCards: { increment: redCount }
+            }
+        });
+      }
     }
 
     return this.getById(id);

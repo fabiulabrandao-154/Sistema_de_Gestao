@@ -13,6 +13,7 @@ import {
   Award
 } from "lucide-react";
 import api from "../services/api";
+import DataService from "../services/dataService";
 import { toast } from "react-hot-toast";
 import { motion } from "motion/react";
 
@@ -28,12 +29,46 @@ const PlayerProfile = () => {
 
   const fetchPlayerData = async () => {
     try {
-      const response = await api.get(`/players/${id}`);
-      setPlayer(response.data);
+      // 1. Try API first
+      try {
+        const response = await api.get(`/players/${id}`);
+        setPlayer(response.data);
+        setLoading(false);
+        return;
+      } catch (apiError) {
+        console.warn("API player fetch failed, trying local data", apiError);
+      }
+
+      // 2. Local Fallback
+      if (id) {
+        const localPlayer = DataService.getPlayers().find(p => p.id === id);
+        if (localPlayer) {
+          const s = DataService.getPlayerStats(id);
+          const totalJogos = s.matchesPlayed || 0;
+          const totalGols = s.goals || 0;
+          
+          setPlayer({
+            ...localPlayer,
+            estatisticas: {
+              total_jogos: totalJogos,
+              total_gols: totalGols,
+              total_assistencias: s.assists || 0,
+              total_vitorias: s.wins || 0,
+              total_empates: s.draws || 0,
+              total_derrotas: s.losses || 0,
+              media_gols: totalJogos > 0 ? totalGols / totalJogos : 0
+            },
+            data_cadastro: (localPlayer as any).createdAt || new Date().toISOString()
+          });
+        } else {
+           toast.error("Jogador não encontrado.");
+           navigate("/players");
+        }
+      }
     } catch (error) {
       console.error("Error fetching player profile", error);
       toast.error("Erro ao carregar perfil do jogador.");
-      navigate("/jogadores");
+      navigate("/players");
     } finally {
       setLoading(false);
     }

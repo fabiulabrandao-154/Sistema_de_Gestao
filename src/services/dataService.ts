@@ -29,6 +29,7 @@ export interface Evento {
   tipo: string;
   jogador_id: string;
   jogador_nome: string;
+  assistencia_id?: string | null;
   assistencia_nome?: string | null;
   minuto: number;
   time_id?: string;
@@ -380,7 +381,30 @@ const DataService = {
 
   rotateTimes: (peladaId: string, timeId: string) => {
     const pelada = getItemById("peladas", peladaId) as Pelada | undefined;
-    if (!pelada || !pelada.times) return null;
+    if (!pelada || !pelada.times || pelada.times.length < 2) return null;
+
+    // 1. Record Match Results (Wins/Losses) before rotating
+    const homeTeam = pelada.times[0];
+    const awayTeam = pelada.times[1];
+    const scoreCasa = pelada.placar_casa || 0;
+    const scoreVisitante = pelada.placar_visitante || 0;
+
+    const results: Record<string, 'wins' | 'draws' | 'losses'> = {};
+    
+    if (scoreCasa > scoreVisitante) {
+      homeTeam.jogadores.forEach(j => results[j.jogador_id] = 'wins');
+      awayTeam.jogadores.forEach(j => results[j.jogador_id] = 'losses');
+    } else if (scoreVisitante > scoreCasa) {
+      homeTeam.jogadores.forEach(j => results[j.jogador_id] = 'losses');
+      awayTeam.jogadores.forEach(j => results[j.jogador_id] = 'wins');
+    } else {
+      homeTeam.jogadores.forEach(j => results[j.jogador_id] = 'draws');
+      awayTeam.jogadores.forEach(j => results[j.jogador_id] = 'draws');
+    }
+
+    Object.entries(results).forEach(([pId, res]) => {
+      DataService.updatePlayerStats(pId, { [res]: 1, matchesPlayed: 1 });
+    });
 
     const times = [...pelada.times];
     const index = times.findIndex(t => t.id === timeId);
@@ -391,7 +415,13 @@ const DataService = {
 
     // Update order
     const ordered = times.map((t, i) => ({ ...t, order: i + 1 }));
-    return updateLocalData("peladas", peladaId, { times: ordered }) as Pelada;
+    return updateLocalData("peladas", peladaId, { 
+      times: ordered,
+      placar_casa: 0,
+      placar_visitante: 0,
+      cronometro_segundos: 0,
+      cronometro_ativo: false 
+    }) as Pelada;
   },
 
   substitutePlayer: (peladaId: string, saiId: string, entraId: string) => {
@@ -495,7 +525,11 @@ const DataService = {
     events.forEach(e => {
       if (e.tipo === 'gol') {
         DataService.updatePlayerStats(e.jogador_id, { goals: 1 });
-        if (e.assistencia_nome && inscritos.length > 0) {
+        
+        // Priority to ID, fallback to finding by name in inscritos
+        if (e.assistencia_id) {
+          DataService.updatePlayerStats(e.assistencia_id, { assists: 1 });
+        } else if (e.assistencia_nome && inscritos.length > 0) {
           const assistant = inscritos.find(i => i.jogador_nome === e.assistencia_nome);
           if (assistant) {
             DataService.updatePlayerStats(assistant.jogador, { assists: 1 });

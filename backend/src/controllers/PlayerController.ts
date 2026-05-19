@@ -6,10 +6,16 @@ const playerService = new PlayerService();
 export class PlayerController {
   async list(req: Request, res: Response) {
     try {
-      const userId = (req as any).user.id;
+      const user = (req as any).user;
+      if (!user || !user.id) {
+        console.error("[PlayerController] User not found in request");
+        return res.status(401).json({ error: "Unauthorized: User not found in request" });
+      }
+      const userId = user.id;
       const result = await playerService.getAll(userId);
       res.json(result);
     } catch (error: any) {
+      console.error("[PlayerController] Error in list:", error);
       res.status(500).json({ error: error.message });
     }
   }

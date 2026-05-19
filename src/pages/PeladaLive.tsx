@@ -220,6 +220,7 @@ const PeladaLive = () => {
       time_id: timeId,
       jogador_id: jogadorId,
       jogador_nome: jogadorNome,
+      assistencia_id: assistenciaId,
       assistencia_nome: assistenciaNome,
       minuto: Math.floor(seconds / 60)
     };

@@ -141,7 +141,10 @@ const Dashboard = () => {
               recentMatches.map((match) => (
                 <Link
                   key={match.id}
-                  to={match.type === 'campeonato' ? `/peladas/live/${match.id}` : `/peladas/${match.id}`}
+                  to={match.type === 'campeonato' 
+                    ? `/peladas/${match.id}/live` 
+                    : (match.status === 'em_andamento' ? `/peladas/${match.id}/live` : `/peladas/${match.id}`)
+                  }
                   className="grid grid-cols-4 p-4 border-b last:border-b-0 border-app-border hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors group"
                 >
                   <span className="text-sm font-medium text-app-text truncate flex items-center gap-2">
