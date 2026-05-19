@@ -30,7 +30,7 @@ async function startServer() {
   // Connect to Database via Prisma
   try {
     await prisma.$connect();
-    console.log("Connected to Database via Prisma (Neon/PostgreSQL)");
+    console.log("Connected to Database via Prisma (SQLite)");
   } catch (err) {
     console.error("Database connection error:", err);
   }
