@@ -20,6 +20,7 @@ export class PlayerService {
       where: { id },
       include: {
         stats: true,
+        estatisticaPelada: true,
         inscritos: {
           include: {
             pelada: true
@@ -29,7 +30,7 @@ export class PlayerService {
     });
     if (!p) return null;
     
-    const stats = p.stats;
+    const ep = p.estatisticaPelada || p.stats;
 
     return {
       id: p.id,
@@ -37,14 +38,14 @@ export class PlayerService {
       nivel_estrelas: p.stars,
       ativo: p.active,
       data_cadastro: p.createdAt.toISOString(),
-      estatisticas: stats ? {
-        total_jogos: stats.matchesPlayed,
-        total_gols: stats.goals,
-        total_assistencias: stats.assists,
-        total_vitorias: stats.wins,
-        total_empates: stats.draws,
-        total_derrotas: stats.losses,
-        media_gols: stats.matchesPlayed > 0 ? stats.goals / stats.matchesPlayed : 0
+      estatisticas: ep ? {
+        total_jogos: 'total_jogos' in ep ? ep.total_jogos : ep.matchesPlayed,
+        total_gols: 'total_gols' in ep ? ep.total_gols : ep.goals,
+        total_assistencias: 'total_assistencias' in ep ? ep.total_assistencias : ep.assists,
+        total_vitorias: 'total_vitorias' in ep ? ep.total_vitorias : ep.wins,
+        total_empates: 'total_empates' in ep ? ep.total_empates : ep.draws,
+        total_derrotas: 'total_derrotas' in ep ? ep.total_derrotas : ep.losses,
+        media_gols: 'media_gols' in ep ? ep.media_gols : (ep.matchesPlayed > 0 ? ep.goals / ep.matchesPlayed : 0)
       } : {
         total_jogos: 0,
         total_gols: 0,

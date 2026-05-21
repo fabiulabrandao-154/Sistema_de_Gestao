@@ -17,7 +17,8 @@ import {
   DollarSign,
   Info,
   GripVertical,
-  Palette
+  Palette,
+  Trophy
 } from "lucide-react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { toast } from "react-hot-toast";
@@ -313,6 +314,55 @@ const PeladaDetail = () => {
               <span className="text-xs font-black text-white uppercase tracking-widest">Ver Painel Completo</span>
               <Play className="w-4 h-4 text-green-500 fill-current group-hover:scale-125 transition-transform" />
             </button>
+          </div>
+        </div>
+      )}
+
+      {(pelada.status === 'finalizada' || pelada.status === 'encerrada') && (
+        <div className="bg-gradient-to-br from-green-950/40 to-zinc-950 rounded-[2.5rem] border border-green-500/10 p-8 shadow-2xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-green-500/10 rounded-full blur-[80px] -mr-32 -mt-32"></div>
+          <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-8">
+            <div className="flex flex-col items-center md:items-start text-center md:text-left">
+              <div className="flex items-center gap-2 mb-2">
+                <Trophy className="w-4 h-4 text-green-500" />
+                <span className="text-[10px] font-black text-green-500 uppercase tracking-widest">Resumo do Jogo Concluído</span>
+              </div>
+              <div className="text-5xl font-black text-white font-mono tracking-tighter flex items-center gap-4">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: pelada.coletes?.[0] || "#ef4444" }}></div>
+                {pelada.placar_casa || 0} 
+                <span className="text-zinc-700 mx-2 text-xl italic uppercase font-sans">VS</span> 
+                {pelada.placar_visitante || 0}
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: pelada.coletes?.[1] || "#3b82f6" }}></div>
+              </div>
+              <p className="text-xs text-zinc-400 mt-2 uppercase font-black tracking-wider">
+                Partida finalizada! As estatísticas individuais dos jogadores participantes foram atualizadas no banco.
+              </p>
+            </div>
+
+            {/* Events summary */}
+            <div className="w-full md:w-96 bg-zinc-900/40 p-6 rounded-3xl border border-zinc-800/60 max-h-48 overflow-y-auto">
+              <div className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-3">Súmula de Eventos</div>
+              <div className="space-y-2">
+                {pelada.eventos && pelada.eventos.length > 0 ? (
+                  pelada.eventos.map((ev: any) => (
+                    <div key={ev.id} className="flex justify-between items-center text-xs">
+                      <div className="flex items-center gap-2">
+                        {ev.tipo === 'gol' && <Trophy className="w-3 h-3 text-green-500" />}
+                        {ev.tipo === 'assistencia' && <Users className="w-3 h-3 text-blue-400" />}
+                        {ev.tipo === 'cartao_amarelo' && <div className="w-2.5 h-3.5 bg-amber-400 rounded-sm"></div>}
+                        {ev.tipo === 'cartao_vermelho' && <div className="w-2.5 h-3.5 bg-red-600 rounded-sm"></div>}
+                        <span className="font-bold text-zinc-200">{ev.jogador_nome}</span>
+                      </div>
+                      {ev.minuto !== undefined && (
+                        <span className="text-[10px] font-mono text-zinc-500 font-bold">{ev.minuto}'</span>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-zinc-500 text-[10px] font-black uppercase tracking-widest text-center py-4">Nenhum evento registrado.</div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}

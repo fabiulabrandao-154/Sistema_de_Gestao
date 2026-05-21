@@ -98,6 +98,7 @@ model Player {
   inscritos PeladaJogador[]
   inscritosCampeonato JogadorTime[]
   eventosCampeonato   EventoCampeonato[]
+  estatisticaPelada   EstatisticaJogadorPelada?
 }
 
 model Pelada {
@@ -175,4 +176,17 @@ model PlayerStats {
   losses            Int    @default(0)
   yellowCards       Int    @default(0)
   redCards          Int    @default(0)
+}
+
+model EstatisticaJogadorPelada {
+  id                 String @id @default(uuid())
+  jogador_id         String @unique
+  player             Player @relation(fields: [jogador_id], references: [id], onDelete: Cascade)
+  total_jogos        Int    @default(0)
+  total_gols         Int    @default(0)
+  total_assistencias Int    @default(0)
+  total_vitorias     Int    @default(0)
+  total_empates      Int    @default(0)
+  total_derrotas     Int    @default(0)
+  media_gols         Float  @default(0.0)
 }

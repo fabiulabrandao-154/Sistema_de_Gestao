@@ -1,5 +1,42 @@
 import prisma from '../lib/prisma';
 
+export async function updateEstatisticaJogadorPelada(playerId: string) {
+  const stats = await prisma.playerStats.findUnique({
+    where: { playerId }
+  });
+
+  const totalJogos = stats?.matchesPlayed || 0;
+  const totalGols = stats?.goals || 0;
+  const totalAssistencias = stats?.assists || 0;
+  const totalVitorias = stats?.wins || 0;
+  const totalEmpates = stats?.draws || 0;
+  const totalDerrotas = stats?.losses || 0;
+  const mediaGols = totalJogos > 0 ? Number((totalGols / totalJogos).toFixed(2)) : 0;
+
+  await prisma.estatisticaJogadorPelada.upsert({
+    where: { jogador_id: playerId },
+    create: {
+      jogador_id: playerId,
+      total_jogos: totalJogos,
+      total_gols: totalGols,
+      total_assistencias: totalAssistencias,
+      total_vitorias: totalVitorias,
+      total_empates: totalEmpates,
+      total_derrotas: totalDerrotas,
+      media_gols: mediaGols
+    },
+    update: {
+      total_jogos: totalJogos,
+      total_gols: totalGols,
+      total_assistencias: totalAssistencias,
+      total_vitorias: totalVitorias,
+      total_empates: totalEmpates,
+      total_derrotas: totalDerrotas,
+      media_gols: mediaGols
+    }
+  });
+}
+
 export class PeladaService {
   async getAll(userId: string) {
     const peladas = await prisma.pelada.findMany({
@@ -359,6 +396,7 @@ export class PeladaService {
                 matchesPlayed: { increment: 1 }
             }
         });
+        await updateEstatisticaJogadorPelada(playerId);
     };
 
     const homePlayers = homeTeam.players ? homeTeam.players.split(',') : [];
@@ -441,6 +479,7 @@ export class PeladaService {
                   matchesPlayed: { increment: 1 }
               }
           });
+          await updateEstatisticaJogadorPelada(pid);
       };
 
       if (scoreCasa > scoreVisitante) {
@@ -476,6 +515,8 @@ export class PeladaService {
             }
         });
       }
+      
+      await updateEstatisticaJogadorPelada(pj.playerId);
     }
 
     return this.getById(id);
