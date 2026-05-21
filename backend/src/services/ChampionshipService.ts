@@ -402,4 +402,82 @@ export class ChampionshipService {
 
     return Object.values(assistants).sort((a: any, b: any) => b.assistencias - a.assistencias);
   }
+
+  async getMatch(matchId: string) {
+    return prisma.jogoCampeonato.findUnique({
+      where: { id: matchId },
+      include: {
+        championship: true,
+        homeTeam: {
+          include: {
+            jogadores: {
+              include: { player: true }
+            }
+          }
+        },
+        awayTeam: {
+          include: {
+            jogadores: {
+              include: { player: true }
+            }
+          }
+        },
+        eventos: {
+          include: {
+            player: true,
+            team: true
+          },
+          orderBy: { createdAt: 'asc' }
+        }
+      }
+    });
+  }
+
+  async createEvent(data: any) {
+    const { jogoId, playerId, teamId, type, minute } = data;
+    // Auto-update match score if event is a gol
+    if (type === 'gol') {
+      const match = await prisma.jogoCampeonato.findUnique({
+        where: { id: jogoId }
+      });
+      if (match) {
+        if (match.homeTeamId === teamId) {
+          await prisma.jogoCampeonato.update({
+            where: { id: jogoId },
+            data: { homeScore: match.homeScore + 1 }
+          });
+        } else if (match.awayTeamId === teamId) {
+          await prisma.jogoCampeonato.update({
+            where: { id: jogoId },
+            data: { awayScore: match.awayScore + 1 }
+          });
+        }
+      }
+    }
+
+    return prisma.eventoCampeonato.create({
+      data: {
+        jogoId,
+        playerId,
+        teamId,
+        type,
+        minute: minute !== undefined ? Number(minute) : 0
+      },
+      include: {
+        player: true,
+        team: true
+      }
+    });
+  }
+
+  async saveResult(gameId: string, data: any) {
+    return prisma.jogoCampeonato.update({
+      where: { id: gameId },
+      data: {
+        homeScore: data.homeScore !== undefined ? Number(data.homeScore) : undefined,
+        awayScore: data.awayScore !== undefined ? Number(data.awayScore) : undefined,
+        status: data.status || 'finalizado'
+      }
+    });
+  }
 }

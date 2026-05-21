@@ -14,7 +14,8 @@ import {
   Award,
   X,
   Trash2,
-  UserPlus
+  UserPlus,
+  MapPin
 } from "lucide-react";
 import api from "../services/api";
 import { toast } from "react-hot-toast";
@@ -45,6 +46,7 @@ interface Game {
   awayScore: number;
   status: string;
   date?: string;
+  location?: string;
   eventos: GameEvent[];
 }
 
@@ -129,6 +131,11 @@ const ChampionshipDetail = () => {
   const [homeGoals, setHomeGoals] = useState(0);
   const [awayGoals, setAwayGoals] = useState(0);
   const [gameEvents, setGameEvents] = useState<GameEvent[]>([]);
+
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [selectedGameForSchedule, setSelectedGameForSchedule] = useState<Game | null>(null);
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleLocation, setScheduleLocation] = useState("");
 
   useEffect(() => {
     fetchChamp();
@@ -318,6 +325,21 @@ const ChampionshipDetail = () => {
     }
   };
 
+  const handleSaveSchedule = async () => {
+    if (!selectedGameForSchedule) return;
+    try {
+      await api.put(`/championships/jogos/${selectedGameForSchedule.id}`, {
+        date: scheduleDate ? new Date(scheduleDate).toISOString() : null,
+        location: scheduleLocation || ""
+      });
+      toast.success("Jogo agendado com sucesso!");
+      setShowScheduleModal(false);
+      fetchChamp();
+    } catch (error) {
+      toast.error("Erro ao salvar agendamento.");
+    }
+  };
+
   if (loading) return (
     <div className="flex flex-col items-center justify-center p-12 min-screen space-y-4">
       <Loader2 className="animate-spin text-blue-500 w-8 h-8" />
@@ -465,48 +487,79 @@ const ChampionshipDetail = () => {
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                            {champ.jogos.filter(j => j.round === round).map(game => (
-                              <div key={game.id} className="bg-app-card border border-app-border rounded-2xl p-4 flex items-center justify-between hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all shadow-sm">
-                                 <div className="flex-1 text-right font-bold truncate text-xs uppercase tracking-tight flex items-center justify-end gap-2">
-                                    {game.homeTeam.name}
-                                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: game.homeTeam.color || '#3b82f6' }}></div>
+                              <div key={game.id} className="bg-app-card border border-app-border rounded-2xl p-4 flex flex-col hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all shadow-sm">
+                                 <div className="flex items-center justify-between w-full">
+                                    <div className="flex-1 text-right font-bold truncate text-xs uppercase tracking-tight flex items-center justify-end gap-2">
+                                       {game.homeTeam.name}
+                                       <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: game.homeTeam.color || '#3b82f6' }}></div>
+                                    </div>
+                                    <div className="flex items-center gap-2 px-4 py-2 bg-app-bg/50 rounded-xl border border-app-border mx-2">
+                                       <span className="font-black text-lg w-6 text-center">{game.status === 'finalizado' ? game.homeScore : '-'}</span>
+                                       <span className="text-[8px] text-zinc-500 font-black">VS</span>
+                                       <span className="font-black text-lg w-6 text-center">{game.status === 'finalizado' ? game.awayScore : '-'}</span>
+                                    </div>
+                                    <div className="flex-1 text-left font-bold truncate text-xs uppercase tracking-tight flex items-center justify-start gap-2">
+                                       <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: game.awayTeam.color || '#3b82f6' }}></div>
+                                       {game.awayTeam.name}
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                       <button 
+                                          onClick={() => {
+                                             setSelectedGameForSchedule(game);
+                                             setScheduleDate(game.date ? new Date(game.date).toISOString().slice(0, 16) : "");
+                                             setScheduleLocation(game.location || "");
+                                             setShowScheduleModal(true);
+                                          }}
+                                          className="p-2 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-500/10 rounded-lg transition"
+                                          title="Agendar Partida"
+                                       >
+                                          <Calendar className="w-4 h-4" />
+                                       </button>
+                                       <button 
+                                          onClick={() => {
+                                             setSelectedGame(game);
+                                             setHomeGoals(game.homeScore || 0);
+                                             setAwayGoals(game.awayScore || 0);
+                                             // Load existing events if any
+                                             setGameEvents(game.eventos?.map((e: any) => ({
+                                                type: e.type,
+                                                playerId: e.playerId,
+                                                playerName: e.player?.name || 'Jogador',
+                                                teamId: e.teamId
+                                             })) || []);
+                                             setShowResultModal(true);
+                                          }}
+                                          className="p-2 text-blue-500 hover:bg-blue-500/10 rounded-lg transition"
+                                          title="Súmula Rápida"
+                                       >
+                                          <ClipboardCheck className="w-4 h-4" />
+                                       </button>
+                                       <Link 
+                                          to={`/peladas/live/match-${game.id}`}
+                                          className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition"
+                                          title="Modo AO VIVO"
+                                       >
+                                          <Play className="w-4 h-4" />
+                                       </Link>
+                                    </div>
                                  </div>
-                                 <div className="flex items-center gap-2 px-4 py-2 bg-app-bg/50 rounded-xl border border-app-border mx-2">
-                                    <span className="font-black text-lg w-6 text-center">{game.status === 'finalizado' ? game.homeScore : '-'}</span>
-                                    <span className="text-[8px] text-zinc-500 font-black">VS</span>
-                                    <span className="font-black text-lg w-6 text-center">{game.status === 'finalizado' ? game.awayScore : '-'}</span>
-                                 </div>
-                                 <div className="flex-1 text-left font-bold truncate text-xs uppercase tracking-tight flex items-center justify-start gap-2">
-                                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: game.awayTeam.color || '#3b82f6' }}></div>
-                                    {game.awayTeam.name}
-                                 </div>
-                                 <div className="flex items-center gap-1">
-                                    <button 
-                                       onClick={() => {
-                                          setSelectedGame(game);
-                                          setHomeGoals(game.homeScore || 0);
-                                          setAwayGoals(game.awayScore || 0);
-                                          // Load existing events if any
-                                          setGameEvents(game.eventos?.map((e: any) => ({
-                                             type: e.type,
-                                             playerId: e.playerId,
-                                             playerName: e.player?.name || 'Jogador',
-                                             teamId: e.teamId
-                                          })) || []);
-                                          setShowResultModal(true);
-                                       }}
-                                       className="p-2 text-blue-500 hover:bg-blue-500/10 rounded-lg transition"
-                                       title="Súmula Rápida"
-                                    >
-                                       <ClipboardCheck className="w-4 h-4" />
-                                    </button>
-                                    <Link 
-                                       to={`/peladas/live/match-${game.id}`}
-                                       className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition"
-                                       title="Modo AO VIVO"
-                                    >
-                                       <Play className="w-4 h-4" />
-                                    </Link>
-                                 </div>
+                                 
+                                 {(game.date || game.location) && (
+                                    <div className="mt-3 pt-2 border-t border-app-border/40 flex items-center gap-4 text-[10px] font-semibold text-app-text-muted justify-center">
+                                       {game.date && (
+                                          <span className="flex items-center gap-1">
+                                             <Calendar className="w-3.5 h-3.5 text-blue-500" />
+                                             {new Date(game.date).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                                          </span>
+                                       )}
+                                       {game.location && (
+                                          <span className="flex items-center gap-1">
+                                             <MapPin className="w-3.5 h-3.5 text-zinc-400" />
+                                             {game.location}
+                                          </span>
+                                       )}
+                                    </div>
+                                 )}
                               </div>
                            ))}
                         </div>
@@ -1050,6 +1103,53 @@ const ChampionshipDetail = () => {
                   >
                      Finalizar Jogo e Súmula
                   </button>
+               </div>
+            </div>
+         </div>
+      )}
+
+      {/* Schedule Edit Modal */}
+      {showScheduleModal && selectedGameForSchedule && (
+         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="bg-app-card rounded-[2rem] p-8 max-w-sm w-full border border-app-border shadow-2xl">
+               <h2 className="text-xl font-black mb-1 text-app-text uppercase tracking-tighter">Agendar Partida</h2>
+               <p className="text-[10px] text-app-text-muted uppercase tracking-widest font-black mb-6">Selecione data, hora e local do jogo</p>
+               <div className="space-y-4">
+                  <div>
+                     <label className="block text-[10px] font-black text-app-text-muted uppercase tracking-widest mb-1 pl-1">Data e Hora</label>
+                     <input
+                        type="datetime-local"
+                        className="w-full px-4 py-3 bg-app-bg border border-app-border rounded-xl outline-none text-app-text font-bold"
+                        value={scheduleDate}
+                        onChange={(e) => setScheduleDate(e.target.value)}
+                     />
+                  </div>
+                  <div>
+                     <label className="block text-[10px] font-black text-app-text-muted uppercase tracking-widest mb-1 pl-1">Local / Estádio</label>
+                     <input
+                        type="text"
+                        placeholder="Ex: Campo Principal, Quadra B"
+                        className="w-full px-4 py-3 bg-app-bg border border-app-border rounded-xl outline-none text-app-text font-bold placeholder-app-text-muted/50"
+                        value={scheduleLocation}
+                        onChange={(e) => setScheduleLocation(e.target.value)}
+                     />
+                  </div>
+                  <div className="flex gap-4 pt-4">
+                     <button 
+                        type="button" 
+                        onClick={() => setShowScheduleModal(false)} 
+                        className="flex-1 px-4 py-3 text-app-text-muted font-black uppercase text-[10px] tracking-widest"
+                     >
+                        Cancelar
+                     </button>
+                     <button 
+                        type="button" 
+                        onClick={handleSaveSchedule} 
+                        className="flex-1 bg-blue-600 text-white px-4 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-blue-700 transition"
+                     >
+                        Salvar
+                     </button>
+                  </div>
                </div>
             </div>
          </div>

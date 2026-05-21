@@ -91,8 +91,8 @@ const PeladaLive = () => {
             local: game.championship?.name || "Campeonato"
          });
          setTimes([
-            { id: game.homeTeam.id, nome_time: game.homeTeam.name, jogadores: game.eventos?.filter((e: any) => e.teamId === game.homeTeam.id).map((e: any) => ({ jogador_id: e.playerId, jogador_nome: e.player.name })) || [] },
-            { id: game.awayTeam.id, nome_time: game.awayTeam.name, jogadores: game.eventos?.filter((e: any) => e.teamId === game.awayTeam.id).map((e: any) => ({ jogador_id: e.playerId, jogador_nome: e.player.name })) || [] }
+            { id: game.homeTeam.id, nome_time: game.homeTeam.name, jogadores: game.homeTeam.jogadores?.map((jt: any) => ({ jogador_id: jt.player.id, jogador_nome: jt.player.nome || jt.player.name || "Jogador" })) || [] },
+            { id: game.awayTeam.id, nome_time: game.awayTeam.name, jogadores: game.awayTeam.jogadores?.map((jt: any) => ({ jogador_id: jt.player.id, jogador_nome: jt.player.nome || jt.player.name || "Jogador" })) || [] }
          ]);
          // Championship matches don't have a queue/rotating teams like pickup games
          setScore({ casa: game.homeScore || 0, visitante: game.awayScore || 0 });

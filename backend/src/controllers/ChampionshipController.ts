@@ -136,6 +136,36 @@ export class ChampionshipController {
     }
   }
 
+  async getMatch(req: Request, res: Response) {
+    try {
+      const { matchId } = req.params;
+      const result = await championshipService.getMatch(matchId);
+      if (!result) return res.status(404).json({ error: 'Match not found' });
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  async createEvent(req: Request, res: Response) {
+    try {
+      const result = await championshipService.createEvent(req.body);
+      res.status(201).json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  async saveResult(req: Request, res: Response) {
+    try {
+      const { gameId } = req.params;
+      const result = await championshipService.saveResult(gameId, req.body);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
   async delete(req: Request, res: Response) {
     try {
       const { id } = req.params;

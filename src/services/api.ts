@@ -6,7 +6,7 @@ const api = axios.create({
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("organizer_token");
-  if (token && !token.startsWith("local-token-")) {
+  if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;

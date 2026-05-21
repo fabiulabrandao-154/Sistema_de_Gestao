@@ -18,6 +18,9 @@ router.post('/:id/times', authMiddleware, championshipController.addTeam);
 router.delete('/times/:teamId', authMiddleware, championshipController.removeTeam);
 router.post('/times/:teamId/jogadores', authMiddleware, championshipController.addPlayerToTeam);
 router.delete('/jogadores/:jogadorTimeId', authMiddleware, championshipController.removePlayerFromTeam);
+router.get('/jogos/:matchId', championshipController.getMatch);
 router.put('/jogos/:matchId', authMiddleware, championshipController.updateMatch);
+router.post('/jogos/:gameId/resultado', authMiddleware, championshipController.saveResult);
+router.post('/eventos', authMiddleware, championshipController.createEvent);
 
 export default router;
