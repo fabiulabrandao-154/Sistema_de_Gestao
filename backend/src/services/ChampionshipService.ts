@@ -125,11 +125,15 @@ export class ChampionshipService {
       teams.push({ id: 'BYE' } as any);
     }
 
+    const baseTime = championship.startDate ? new Date(championship.startDate).getTime() : Date.now();
+
     if (championship.format === 'grupos_mata') {
       // Split teams into groups (e.g., 2 groups)
       const numGroups = 2;
       const groups: any[][] = [[], []];
       teams.forEach((t, i) => groups[i % numGroups].push(t));
+
+      let matchCounter = 0;
 
       for (let gIdx = 0; gIdx < numGroups; gIdx++) {
         const groupTeams = groups[gIdx];
@@ -145,13 +149,18 @@ export class ChampionshipService {
             const away = groupTeams[n - 1 - m];
 
             if (home.id !== 'BYE' && away.id !== 'BYE') {
+              // Schedule matches of each round to prevent conflicts (weekly and daily hourly spacing)
+              const gameTime = new Date(baseTime + (r * 7 * 24 * 60 * 60 * 1000) + (matchCounter * 2 * 60 * 60 * 1000));
+              matchCounter++;
+
               await prisma.jogoCampeonato.create({
                 data: {
                   championshipId: id,
                   homeTeamId: home.id,
                   awayTeamId: away.id,
                   round: r + 1,
-                  status: 'agendado'
+                  status: 'agendado',
+                  date: gameTime
                 }
               });
             }
@@ -160,7 +169,7 @@ export class ChampionshipService {
         }
       }
     } else {
-      // Original Round Robin logic
+      // Original Round Robin logic with automatic non-conflicting date assignment
       const numTeams = teams.length;
       const numRounds = numTeams - 1;
       const matchesPerRound = numTeams / 2;
@@ -195,14 +204,26 @@ export class ChampionshipService {
         roundRobinGames.push(...returnGames);
       }
 
+      const roundCountMap: { [round: number]: number } = {};
+
       for (const g of roundRobinGames) {
+        if (!roundCountMap[g.round]) {
+          roundCountMap[g.round] = 0;
+        }
+        const matchIndexInRound = roundCountMap[g.round];
+        roundCountMap[g.round]++;
+
+        // Round r scheduled on week `r-1`. Inside the round, each game is scheduled 2 hours apart.
+        const gameTime = new Date(baseTime + ((g.round - 1) * 7 * 24 * 60 * 60 * 1000) + (matchIndexInRound * 2 * 60 * 60 * 1000));
+
         await prisma.jogoCampeonato.create({
           data: {
             championshipId: id,
             homeTeamId: g.home.id,
             awayTeamId: g.away.id,
             round: g.round,
-            status: 'agendado'
+            status: 'agendado',
+            date: gameTime
           }
         });
       }
@@ -224,6 +245,42 @@ export class ChampionshipService {
             minute: e.minute || 0
           }
         });
+      }
+    }
+
+    // Verify time conflict: a team cannot have two matches scheduled at the exact same Date
+    if (data.date) {
+      const matchDate = new Date(data.date);
+      const match = await prisma.jogoCampeonato.findUnique({
+        where: { id },
+        include: { homeTeam: true, awayTeam: true }
+      });
+      
+      if (match) {
+        const conflict = await prisma.jogoCampeonato.findFirst({
+          where: {
+            championshipId: match.championshipId,
+            id: { not: id },
+            date: matchDate,
+            OR: [
+              { homeTeamId: match.homeTeamId },
+              { awayTeamId: match.homeTeamId },
+              { homeTeamId: match.awayTeamId },
+              { awayTeamId: match.awayTeamId }
+            ]
+          },
+          include: {
+            homeTeam: true,
+            awayTeam: true
+          }
+        });
+        
+        if (conflict) {
+          const conflictingTeam = conflict.homeTeamId === match.homeTeamId || conflict.homeTeamId === match.awayTeamId 
+            ? conflict.homeTeam.name 
+            : conflict.awayTeam.name;
+          throw new Error(`Conflito: O time "${conflictingTeam}" já possui uma partida agendada para este horário!`);
+        }
       }
     }
 

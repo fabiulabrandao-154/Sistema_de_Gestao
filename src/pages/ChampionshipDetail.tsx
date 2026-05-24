@@ -335,8 +335,8 @@ const ChampionshipDetail = () => {
       toast.success("Jogo agendado com sucesso!");
       setShowScheduleModal(false);
       fetchChamp();
-    } catch (error) {
-      toast.error("Erro ao salvar agendamento.");
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || "Erro ao salvar agendamento.");
     }
   };
 
@@ -558,6 +558,28 @@ const ChampionshipDetail = () => {
                                              {game.location}
                                           </span>
                                        )}
+                                    </div>
+                                 )}
+
+                                 {game.status === 'finalizado' && game.eventos && game.eventos.length > 0 && (
+                                    <div className="mt-3 pt-3 border-t border-app-border/40 space-y-2">
+                                       <div className="text-[9px] font-black uppercase tracking-widest text-center text-app-text-muted">Boletim do Jogo</div>
+                                       <div className="grid grid-cols-1 gap-1.5 bg-zinc-50 dark:bg-zinc-800/20 p-2.5 rounded-xl border border-app-border/40">
+                                          {game.eventos.map((evt: any, eIdx: number) => (
+                                             <div key={eIdx} className="flex justify-between items-center text-[11px] font-bold">
+                                                <div className="flex items-center gap-2">
+                                                   {evt.type === 'gol' && <span title="Gol" className="text-green-500">⚽</span>}
+                                                   {evt.type === 'assistencia' && <span title="Assistência" className="text-blue-500">👟</span>}
+                                                   {evt.type === 'cartao_amarelo' && <div className="w-1.5 h-2.5 bg-amber-400 rounded-sm border border-amber-600" title="Cartão Amarelo"></div>}
+                                                   {evt.type === 'cartao_vermelho' && <div className="w-1.5 h-2.5 bg-red-600 rounded-sm border border-red-800" title="Cartão Vermelho"></div>}
+                                                   <span className="text-app-text font-black uppercase text-[10px]">{evt.player?.name || evt.playerName || 'Jogador'}</span>
+                                                </div>
+                                                <span className="text-[8px] font-black uppercase tracking-wider text-app-text-muted bg-zinc-200/50 dark:bg-zinc-800/80 px-1.5 py-0.5 rounded-md">
+                                                   {evt.teamId === game.homeTeam.id ? 'Casa' : 'Visitante'}
+                                                </span>
+                                             </div>
+                                          ))}
+                                       </div>
                                     </div>
                                  )}
                               </div>

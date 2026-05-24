@@ -505,9 +505,20 @@ export class PeladaService {
       const redCount = events.filter(e => e.playerId === pj.playerId && e.type === 'cartao_vermelho').length;
 
       if (goalsCount > 0 || assistCount > 0 || yellowCount > 0 || redCount > 0) {
-        await prisma.playerStats.update({
+        await prisma.playerStats.upsert({
             where: { playerId: pj.playerId },
-            data: {
+            create: {
+                playerId: pj.playerId,
+                goals: goalsCount,
+                assists: assistCount,
+                yellowCards: yellowCount,
+                redCards: redCount,
+                matchesPlayed: 0,
+                wins: 0,
+                draws: 0,
+                losses: 0
+            },
+            update: {
                 goals: { increment: goalsCount },
                 assists: { increment: assistCount },
                 yellowCards: { increment: yellowCount },

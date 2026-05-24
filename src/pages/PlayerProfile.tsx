@@ -87,6 +87,48 @@ const PlayerProfile = () => {
   const stats = player.estatisticas;
   const winRate = stats.total_jogos > 0 ? ((stats.total_vitorias / stats.total_jogos) * 100).toFixed(1) : "0";
 
+  const totalJogos = stats.total_jogos || 0;
+  
+  // Tactical ratings (0 to 1)
+  const tecnicRating = Math.min(player.nivel_estrelas / 5, 1);
+  const attackRating = totalJogos > 0 ? Math.min((stats.total_gols / totalJogos) / 1.5, 1) : 0;
+  const playmakeRating = totalJogos > 0 ? Math.min((stats.total_assistencias / totalJogos) / 1.0, 1) : 0;
+  const decisionRating = totalJogos > 0 ? (stats.total_vitorias / totalJogos) : 0;
+  const experienceRating = Math.min(totalJogos / 20, 1);
+
+  const ratings = [
+    { label: "Técnica", value: tecnicRating },       // Axis 0
+    { label: "Pontaria", value: attackRating },       // Axis 1
+    { label: "Coletividade", value: playmakeRating }, // Axis 2
+    { label: "Decisão", value: decisionRating },     // Axis 3
+    { label: "Resistência", value: experienceRating } // Axis 4
+  ];
+
+  // Radar points calculation
+  const cx = 100;
+  const cy = 100;
+  const r = 70;
+  
+  const getCoordinates = (index: number, scale: number) => {
+    const angle = -Math.PI / 2 + (index * 2 * Math.PI) / 5;
+    const x = cx + r * scale * Math.cos(angle);
+    const y = cy + r * scale * Math.sin(angle);
+    return { x, y };
+  };
+
+  // Outer web grids
+  const webs = [0.2, 0.4, 0.6, 0.8, 1.0];
+
+  const getArchetype = () => {
+    if (totalJogos === 0) return { title: "Recruta", desc: "Ainda não estreou nas peladas oficiais. Adicione-o a uma pelada para começar!" };
+    if (attackRating >= 0.7 && attackRating >= playmakeRating) return { title: "Artilheiro Clínico", desc: "Um verdadeiro perigo na área. Finaliza com precisão e foca no gol." };
+    if (playmakeRating >= 0.7 && playmakeRating >= attackRating) return { title: "Arquiteto do Jogo", desc: "Visão de jogo extraordinária. Prefere um passe açucarado a brilhar sozinho nas estatísticas." };
+    if (decisionRating >= 0.7) return { title: "Amuleto da Vitória", desc: "Espírito decisivo e vencedor. Onde joga, as chances de vitória do time disparam." };
+    if (experienceRating >= 0.8) return { title: "Lenda das Quadras", desc: "Experiente, consistente e indispensável em qualquer escalação." };
+    return { title: "Jogador Equilibrado", desc: "Polivalente e tático. Atua bem em todas as fases do jogo com alto espírito de equipe." };
+  };
+  const archetype = getArchetype();
+
   return (
     <div className="max-w-4xl mx-auto pb-20 px-4 md:px-0">
       {/* Header */}
@@ -194,22 +236,145 @@ const PlayerProfile = () => {
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.6 }}
-          className="bg-app-card rounded-[2.5rem] p-8 border border-app-border shadow-lg flex flex-col justify-center items-center text-center group"
+          className="bg-app-card rounded-[2.5rem] p-8 border border-app-border shadow-lg flex flex-col md:flex-row items-center gap-6"
         >
-          <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-             <Shield className="w-10 h-10 text-green-600" />
+          <div className="relative w-44 h-44 flex items-center justify-center mx-auto md:mx-0">
+            <svg viewBox="0 0 200 200" className="w-full h-full overflow-visible">
+              {/* webs */}
+              {webs.map((w, index) => {
+                const points = Array.from({ length: 5 }, (_, i) => getCoordinates(i, w));
+                const pointsStr = points.map(p => `${p.x},${p.y}`).join(" ");
+                return (
+                  <polygon
+                    key={index}
+                    points={pointsStr}
+                    fill="none"
+                    stroke="currentColor"
+                    className="text-app-border"
+                    strokeWidth="1"
+                    strokeDasharray={index === 4 ? "0" : "2"}
+                  />
+                );
+              })}
+              {/* axis lines */}
+              {Array.from({ length: 5 }).map((_, i) => {
+                const { x, y } = getCoordinates(i, 1);
+                return (
+                  <line
+                    key={i}
+                    x1={cx}
+                    y1={cy}
+                    x2={x}
+                    y2={y}
+                    stroke="currentColor"
+                    className="text-app-border/40"
+                    strokeWidth="1"
+                  />
+                );
+              })}
+              {/* value area polygon */}
+              {(() => {
+                const points = ratings.map((r, i) => getCoordinates(i, r.value));
+                const pointsStr = points.map(p => `${p.x},${p.y}`).join(" ");
+                return (
+                  <polygon
+                    points={pointsStr}
+                    fill="rgba(34, 197, 94, 0.2)"
+                    stroke="#22c55e"
+                    strokeWidth="2"
+                  />
+                );
+              })()}
+              {/* axis labels */}
+              {ratings.map((r, i) => {
+                const { x, y } = getCoordinates(i, 1.22);
+                let textAnchor: "end" | "middle" | "start" = "middle";
+                if (x < cx - 10) textAnchor = "end";
+                if (x > cx + 10) textAnchor = "start";
+                return (
+                  <text
+                    key={i}
+                    x={x}
+                    y={y + 4}
+                    textAnchor={textAnchor}
+                    className="text-[10px] font-black uppercase fill-current text-app-text-muted select-none"
+                  >
+                    {r.label}
+                  </text>
+                );
+              })}
+            </svg>
           </div>
-          <h3 className="text-2xl font-black text-app-text uppercase tracking-tighter mb-2">Pilar do Time</h3>
-          <p className="text-app-text-muted text-sm max-w-[240px]">
-            Este jogador participou de {stats.total_jogos} partidas oficiais, mantendo uma média de {stats.media_gols.toFixed(2)} gols por jogo.
-          </p>
-          <div className="mt-8 flex gap-2">
-             <div className="w-3 h-3 rounded-full bg-green-500"></div>
-             <div className="w-3 h-3 rounded-full bg-green-500/30"></div>
-             <div className="w-3 h-3 rounded-full bg-green-500/30"></div>
+          <div className="flex-1 text-center md:text-left">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-500/10 rounded-full text-[10px] font-black text-green-500 uppercase tracking-widest mb-3">
+              <Shield className="w-3.5 h-3.5" /> Archetipo: {archetype.title}
+            </div>
+            <h3 className="text-xl font-black text-app-text uppercase tracking-tighter mb-2">Características</h3>
+            <p className="text-app-text-muted text-xs leading-relaxed max-w-sm">
+              {archetype.desc}
+            </p>
           </div>
         </motion.div>
       </div>
+
+      {/* Recent Matches */}
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.7 }}
+        className="bg-app-card rounded-[2.5rem] p-8 border border-app-border shadow-lg mt-8"
+      >
+        <h2 className="text-xl font-black text-app-text uppercase tracking-tighter mb-6 flex items-center">
+          <Calendar className="w-5 h-5 mr-2 text-green-500" /> Presenças e Partidas Recentes
+        </h2>
+        <div className="space-y-4">
+          {player.peladaJogadores && player.peladaJogadores.length > 0 ? (
+            [...player.peladaJogadores]
+              .sort((a: any, b: any) => new Date(b.pelada.date).getTime() - new Date(a.pelada.date).getTime())
+              .slice(0, 5)
+              .map((pj: any) => (
+                <div key={pj.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-zinc-50 dark:bg-zinc-800/40 border border-app-border rounded-2xl gap-4 hover:border-green-500/20 transition-all">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-green-500/10 text-green-600 flex items-center justify-center font-black">
+                      ⚽
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-app-text text-sm uppercase tracking-tight">{pj.pelada.title}</h4>
+                      <p className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">{new Date(pj.pelada.date).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Presença */}
+                    {pj.presenceConfirmed ? (
+                      <span className="px-2.5 py-1 bg-green-500/10 text-green-500 text-[10px] font-black uppercase tracking-widest rounded-lg">Confirmado</span>
+                    ) : (
+                      <span className="px-2.5 py-1 bg-zinc-200 dark:bg-zinc-800 text-app-text-muted text-[10px] font-black uppercase tracking-widest rounded-lg">Falta</span>
+                    )}
+
+                    {/* Pagamento */}
+                    {pj.paymentConfirmed ? (
+                      <span className="px-2.5 py-1 bg-blue-500/10 text-blue-500 text-[10px] font-black uppercase tracking-widest rounded-lg">Pago</span>
+                    ) : (
+                      <span className="px-2.5 py-1 bg-zinc-200 dark:bg-zinc-800 text-app-text-muted text-[10px] font-black uppercase tracking-widest rounded-lg">Pendente</span>
+                    )}
+
+                    {/* Placar se finalizado */}
+                    {(pj.pelada.status === 'finalizada' || pj.pelada.status === 'encerrada') && (
+                      <div className="bg-zinc-100 dark:bg-zinc-800 px-3 py-1 rounded-xl text-xs font-mono font-black text-app-text">
+                        {pj.pelada.placarCasa} - {pj.pelada.placarVisitante}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))
+          ) : (
+            <div className="text-center py-8 text-app-text-muted text-xs uppercase font-black tracking-widest">
+              Nenhuma participação registrada nesta plataforma ainda.
+            </div>
+          )}
+        </div>
+      </motion.div>
     </div>
   );
 };
